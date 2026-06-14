@@ -1,77 +1,65 @@
 # eFootball League — The Table
 
-A shared ELO leaderboard for your eFootball group. Built with Next.js (App Router) +
-Supabase (Postgres). Anyone can add players and report results; an admin PIN is
-required to approve/reject results before they affect ratings.
+A shared ELO leaderboard for your eFootball group, with seasons, stats, player
+profiles, and an admin panel — built on Next.js + Supabase.
 
-## What's already done
+## What's new in this version
 
-- ✅ Supabase project created (free tier) with `players`, `matches`, and
-  `pending_matches` tables, RLS policies enabled.
-- ✅ The Supabase URL + anon key are already filled in at `lib/supabase.js`
-  (these are safe to expose — the anon key is meant to be public, and access is
-  controlled by the RLS policies in the database).
-- ✅ App builds cleanly with `npm run build`.
+- **Real admin login** (Supabase Auth) at `/admin/login`. The admin dashboard
+  (`/admin`) lets you add, edit, and delete players, approve/reject reported
+  results, and reset the table for a new season.
+- **Seasons**: resetting the table archives the current standings (viewable
+  later) and starts everyone fresh at 1000 ELO with a clean record. Match
+  history is preserved.
+- **Stats tab**: weekly and monthly leaderboards for "most ELO gained" and
+  "best win rate" (minimum 2 games), plus top goal scorers for the current
+  season.
+- **Player profiles** (`/players/[id]`): every player gets a page showing
+  their stats, recent matches, and lets them set their own team/club picture
+  and highest-ever rank in eFootball's real online ranking — no login needed
+  for this part, anyone can edit their own profile page.
 
-## 1. Push to GitHub
+## One-time setup: create your admin account
 
-```bash
-unzip efootball-app.zip
-cd efootball-app
-git init
-git add .
-git commit -m "Initial commit: eFootball ELO leaderboard"
-```
+1. Go to your Supabase project's Authentication users page:
+   https://supabase.com/dashboard/project/qjogykolbwnxundhjxqr/auth/users
+2. Click **Add user** → **Create new user**.
+3. Enter an email and password — this becomes your admin login.
+4. Use those credentials at `https://your-site.vercel.app/admin/login`.
 
-Create a new empty repo on GitHub (no README/license), then:
+You can add more admin accounts the same way if you want multiple people to
+have admin access.
 
-```bash
-git remote add origin https://github.com/<your-username>/<your-repo>.git
-git branch -M main
-git push -u origin main
-```
+## Deploying the update
 
-## 2. Deploy on Vercel
+This update adds new files and folders (an `app/admin` section, `app/players`,
+new API routes, and `middleware.js` at the project root) and edits some
+existing ones, plus a new dependency (`@supabase/ssr`).
 
-1. Go to https://vercel.com/new
-2. Import the GitHub repo you just pushed.
-3. Framework preset should auto-detect as **Next.js** — no extra config needed.
-4. Click **Deploy**.
+The simplest way to apply it:
 
-That's it — no environment variables are required to get started, since the
-Supabase credentials are already in the code. (See "Optional" below if you'd
-rather move them to env vars.)
+1. Unzip this new `efootball-app.zip`.
+2. On your GitHub repo page, click **Add file → Upload files**.
+3. Drag in the entire contents of the unzipped `efootball-app` folder
+   (all files and folders — `app`, `lib`, `middleware.js`, `package.json`,
+   `package-lock.json`, etc.). GitHub will show which files are new vs. changed.
+4. Commit the changes.
 
-## 3. Use it
+Vercel will automatically rebuild and redeploy — check the **Deployments**
+tab in your Vercel dashboard.
 
-- **Table** — the live leaderboard, sorted by ELO. Add players here.
-- **Report Result** — anyone can log a match result; it goes to a pending queue.
-- **Approvals** — requires the admin PIN (default: `2026`) to approve/reject.
-  Approving a result updates both players' ELO using the standard ELO formula
-  (K-factor = 32).
-- **Head-to-Head** — pick two players to see their record against each other.
-- **History** — full log of confirmed matches with ELO changes.
+## How it all fits together
 
-## Changing the admin PIN
-
-Edit `lib/config.js`:
-
-```js
-export const ADMIN_PIN = '2026'; // change me
-```
-
-Commit and push — Vercel will redeploy automatically.
-
-## Optional: move Supabase credentials to environment variables
-
-If you'd rather not have the Supabase URL/key in the repo, in your Vercel
-project go to **Settings → Environment Variables** and add:
-
-- `SUPABASE_URL` = `https://qjogykolbwnxundhjxqr.supabase.co`
-- `SUPABASE_ANON_KEY` = (the anon key currently in `lib/supabase.js`)
-
-`lib/supabase.js` already prefers these env vars if they're set, and falls
-back to the hardcoded values otherwise.
+- **The Table** (home page) — public leaderboard. Tap any player to view
+  their profile.
+- **Report Result** — open to anyone, optional screenshot.
+- **Stats** — weekly/monthly top performers and season goal scorers.
+- **Head-to-Head** / **History** — unchanged.
+- **Admin** (`/admin`) — login required. Approve/reject results, manage the
+  roster (add/edit/delete players, set their highest rank), and reset the
+  season.
+- **Player profile** (`/players/[id]`) — anyone can set their own team
+  picture and highest rank here.
 
 ## Local development
 
@@ -80,4 +68,5 @@ npm install
 npm run dev
 ```
 
-Visit http://localhost:3000
+Visit http://localhost:3000 — note that `/admin` requires a real Supabase
+login (see setup above), it won't work with the old PIN.

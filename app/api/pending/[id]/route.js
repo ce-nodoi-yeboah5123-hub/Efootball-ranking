@@ -1,13 +1,14 @@
 import { supabase } from '../../../../lib/supabase';
-import { ADMIN_PIN, eloDelta } from '../../../../lib/config';
+import { createClient as createServerSupabase, getUser } from '../../../../lib/supabase-server';
+import { eloDelta } from '../../../../lib/config';
 
 // Approve a pending match: updates ELO + records, inserts into matches, clears pending
 export async function POST(req, { params }) {
   const { id } = params;
-  const body = await req.json().catch(() => ({}));
-
-  if (body.pin !== ADMIN_PIN) {
-    return Response.json({ error: 'Incorrect PIN.' }, { status: 401 });
+  const serverSupabase = createServerSupabase();
+  const user = await getUser(serverSupabase);
+  if (!user) {
+    return Response.json({ error: 'Admin login required.' }, { status: 401 });
   }
 
   const { data: entry, error: entryError } = await supabase
@@ -46,7 +47,16 @@ export async function POST(req, { params }) {
   const outcomeA = result === 1 ? 'w' : result === 0 ? 'l' : 'd';
   const outcomeB = result === 1 ? 'l' : result === 0 ? 'w' : 'd';
 
-  const { error: updateAError } = await supabase
+  // Find current season
+  const { data: season } = await supabase
+    .from('seasons')
+    .select('id')
+    .is('ended_at', null)
+    .order('started_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const { error: updateAError } = await serverSupabase
     .from('players')
     .update({
       elo: newEloA,
@@ -56,7 +66,7 @@ export async function POST(req, { params }) {
     })
     .eq('id', pA.id);
 
-  const { error: updateBError } = await supabase
+  const { error: updateBError } = await serverSupabase
     .from('players')
     .update({
       elo: newEloB,
@@ -70,7 +80,7 @@ export async function POST(req, { params }) {
     return Response.json({ error: 'Failed to update player ratings.' }, { status: 500 });
   }
 
-  const { error: matchError } = await supabase.from('matches').insert({
+  const { error: matchError } = await serverSupabase.from('matches').insert({
     player_a: entry.player_a,
     player_b: entry.player_b,
     score_a: entry.score_a,
@@ -81,13 +91,14 @@ export async function POST(req, { params }) {
     elo_b_after: newEloB,
     played_at: entry.created_at,
     screenshot_url: entry.screenshot_url,
+    season_id: season?.id || null,
   });
 
   if (matchError) {
     return Response.json({ error: 'Failed to record the match.' }, { status: 500 });
   }
 
-  await supabase.from('pending_matches').delete().eq('id', id);
+  await serverSupabase.from('pending_matches').delete().eq('id', id);
 
   return Response.json({ success: true });
 }
@@ -95,13 +106,13 @@ export async function POST(req, { params }) {
 // Reject a pending match
 export async function DELETE(req, { params }) {
   const { id } = params;
-  const body = await req.json().catch(() => ({}));
-
-  if (body.pin !== ADMIN_PIN) {
-    return Response.json({ error: 'Incorrect PIN.' }, { status: 401 });
+  const serverSupabase = createServerSupabase();
+  const user = await getUser(serverSupabase);
+  if (!user) {
+    return Response.json({ error: 'Admin login required.' }, { status: 401 });
   }
 
-  const { error } = await supabase.from('pending_matches').delete().eq('id', id);
+  const { error } = await serverSupabase.from('pending_matches').delete().eq('id', id);
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
   return Response.json({ success: true });
