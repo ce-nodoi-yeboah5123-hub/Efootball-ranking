@@ -1,0 +1,24 @@
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: ['./app/**/*.{js,jsx}'],
+  theme: {
+    extend: {
+      colors: {
+        pitch: '#13201A',
+        panel: '#1D2E25',
+        panelAlt: '#243A2F',
+        chalk: '#F4F1E8',
+        muted: '#8FAE9C',
+        lime: '#9FE870',
+        coral: '#FF6B5B',
+        gold: '#E8C468',
+      },
+      fontFamily: {
+        display: ['Teko', 'sans-serif'],
+        mono: ['"Space Mono"', 'monospace'],
+        sans: ['"Work Sans"', 'sans-serif'],
+      },
+    },
+  },
+  plugins: [],
+};
