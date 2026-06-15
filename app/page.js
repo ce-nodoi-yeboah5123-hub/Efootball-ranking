@@ -1,701 +1,435 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, createContext, useContext } from 'react';
 import Link from 'next/link';
 import {
-  Trophy,
-  Swords,
-  History,
-  Repeat,
-  Users,
-  Image as ImageIcon,
-  Loader2,
-  BarChart3,
-  ShieldCheck,
-  Target,
+  Trophy, Swords, History, Repeat, Users, Image as ImageIcon,
+  Loader2, BarChart3, ShieldCheck, Home as HomeIcon, ListOrdered,
+  ClipboardCheck, User, CheckCircle2, TrendingUp, Sun, Moon,
 } from 'lucide-react';
 import { uploadScreenshot } from '../lib/supabaseClient';
 
+/* ═══════════════════════════════════════════════════════════
+   DARK MODE CONTEXT
+═══════════════════════════════════════════════════════════ */
+const DarkContext = createContext(false);
+function useDark() { return useContext(DarkContext); }
+
+/* ═══════════════════════════════════════════════════════════
+   TROPHY CONFIG
+═══════════════════════════════════════════════════════════ */
+const TROPHY_TYPES = {
+  winner:        { label: 'Winner',       emoji: '🏆', color: '#D97706', bg: '#FEF3C7', border: '#FCD34D' },
+  runner_up:     { label: 'Runner Up',    emoji: '🥈', color: '#64748B', bg: '#F1F5F9', border: '#CBD5E1' },
+  golden_boot:   { label: 'Golden Boot',  emoji: '👟', color: '#059669', bg: '#ECFDF5', border: '#6EE7B7' },
+  golden_glove:  { label: 'Golden Glove', emoji: '🧤', color: '#2563EB', bg: '#EFF6FF', border: '#93C5FD' },
+  top_scorer:    { label: 'Top Scorer',   emoji: '⭐', color: '#EA580C', bg: '#FFF7ED', border: '#FED7AA' },
+  season_mvp:    { label: 'Season MVP',   emoji: '🏅', color: '#7C3AED', bg: '#F5F3FF', border: '#C4B5FD' },
+};
+
+/* ═══════════════════════════════════════════════════════════
+   THEME HELPERS — returns className strings based on dark mode
+═══════════════════════════════════════════════════════════ */
+function useTheme() {
+  const dark = useDark();
+  return {
+    bg:       dark ? 'bg-[#0D1B24]'  : 'bg-[#F0F4F8]',
+    card:     dark ? 'bg-[#162330]'  : 'bg-white',
+    border:   dark ? 'border-[#1E3040]' : 'border-[#DDE3EA]',
+    ink:      dark ? 'text-[#E8F0F5]'  : 'text-[#0F1E26]',
+    muted:    dark ? 'text-[#7A9BAD]'  : 'text-[#4A6273]',
+    navBg:    dark ? 'bg-[#111E28]'  : 'bg-white',
+    navBorder:dark ? 'border-[#1E3040]' : 'border-[#DDE3EA]',
+    inputBg:  dark ? 'bg-[#162330] border-[#1E3040] text-[#E8F0F5]' : 'bg-white border-[#DDE3EA] text-[#0F1E26]',
+    hover:    dark ? 'hover:bg-[#1E3040]' : 'hover:bg-[#F0F4F8]',
+    dark,
+  };
+}
+
+/* ─── Form dots ────────────────────────────────────────── */
 function FormDots({ form }) {
   const last5 = (form || []).slice(-5).reverse();
   const slots = [...last5, ...Array(5 - last5.length).fill(null)];
   return (
     <div className="flex gap-1 mt-1">
       {slots.map((r, i) => {
-        let bg = 'rgba(244,241,232,0.08)';
-        if (r === 'W') bg = '#9FE870';
-        if (r === 'D') bg = '#E8C468';
-        if (r === 'L') bg = '#FF6B5B';
+        let bg = '#4A6273';
+        if (r === 'W') bg = '#27AE60';
+        if (r === 'D') bg = '#F0A500';
+        if (r === 'L') bg = '#E74C3C';
         return <div key={i} className="w-2 h-2 rounded-sm" style={{ background: bg }} />;
       })}
     </div>
   );
 }
 
-export default function Home() {
-  const [players, setPlayers] = useState([]);
-  const [matches, setMatches] = useState([]);
-  const [pending, setPending] = useState([]);
-  const [season, setSeason] = useState(null);
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState('leaderboard');
-  const [busy, setBusy] = useState(false);
+function SectionTitle({ children }) {
+  const { ink } = useTheme();
+  return <h2 className={`font-display font-bold text-2xl uppercase tracking-wide ${ink} mb-3`}>{children}</h2>;
+}
 
-  // submit match
+/* ═══════════════════════════════════════════════════════════
+   HOME TAB
+═══════════════════════════════════════════════════════════ */
+function HomeTab({ players, matches, pending, season, setTab }) {
+  const { card, border, ink, muted, dark } = useTheme();
+
+  const navCards = [
+    { id: 'leaderboard', label: 'Table',    Icon: Trophy,        desc: 'ELO standings' },
+    { id: 'submit',      label: 'Report',   Icon: Swords,        desc: 'Submit a result' },
+    { id: 'approval',    label: 'Approval', Icon: ClipboardCheck,desc: 'Pending results' },
+    { id: 'h2h',         label: 'H2H',      Icon: Repeat,        desc: 'Head-to-head' },
+    { id: 'history',     label: 'History',  Icon: History,       desc: 'Match log' },
+  ];
+
+  return (
+    <div className="flex flex-col">
+      {/* ── Video Hero ── */}
+      <div className="relative w-full h-56 sm:h-72 overflow-hidden">
+        <video
+          autoPlay muted loop playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+          poster="https://images.unsplash.com/photo-1489944440615-453fc2b6a9a9?w=900&auto=format&fit=crop&q=80"
+        >
+          <source src="https://cdn.pixabay.com/video/2020/07/30/46234-446449469_large.mp4" type="video/mp4" />
+          <source src="https://cdn.pixabay.com/video/2019/09/16/27089-361562102_large.mp4" type="video/mp4" />
+          <img
+            src="https://images.unsplash.com/photo-1489944440615-453fc2b6a9a9?w=900&auto=format&fit=crop&q=80"
+            alt="Stadium" className="w-full h-full object-cover"
+          />
+        </video>
+        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/40 to-black/80" />
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+          <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm border-2 border-white/60 flex items-center justify-center mb-2 shadow-lg">
+            <Trophy size={28} className="text-white" />
+          </div>
+          <p className="font-display font-bold text-xl uppercase tracking-widest text-white drop-shadow">Super League</p>
+          <p className="text-white/70 text-sm mt-1 italic drop-shadow">Where legends are made.</p>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="px-4 pt-5 pb-28">
+        {/* Stats row */}
+        <div className="flex gap-3 mb-5">
+          <div className={`flex-1 ${card} rounded-2xl border ${border} shadow-sm px-4 py-3 text-center`}>
+            <div className="font-display font-bold text-3xl text-teal">{players.length}</div>
+            <div className={`${muted} text-xs mt-0.5`}>Players</div>
+          </div>
+          <div className={`flex-1 ${card} rounded-2xl border ${border} shadow-sm px-4 py-3 text-center`}>
+            <div className="font-display font-bold text-3xl text-teal">{matches.length}</div>
+            <div className={`${muted} text-xs mt-0.5`}>Matches</div>
+          </div>
+          {season?.current && (
+            <div className="flex-1 bg-teal rounded-2xl shadow-sm px-4 py-3 text-center">
+              <div className="font-display font-bold text-2xl text-white leading-tight">{season.current.name}</div>
+              <div className="text-white/70 text-xs mt-0.5">Season</div>
+            </div>
+          )}
+        </div>
+
+        {/* Nav cards 3+2 */}
+        <div className="grid grid-cols-3 gap-3 mb-3">
+          {navCards.slice(0, 3).map(({ id, label, Icon, desc }) => (
+            <button key={id} onClick={() => setTab(id)}
+              className={`${card} border ${border} rounded-2xl shadow-sm hover:shadow-md active:scale-95 transition-all flex flex-col items-center justify-center gap-2 py-5 px-2`}>
+              <div className={`w-12 h-12 rounded-xl ${dark ? 'bg-teal/20' : 'bg-teal/10'} flex items-center justify-center`}>
+                <Icon size={22} className="text-teal" />
+              </div>
+              <span className={`font-semibold ${ink} text-sm`}>{label}</span>
+              <span className={`${muted} text-xs leading-tight text-center`}>{desc}</span>
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          {navCards.slice(3).map(({ id, label, Icon, desc }) => (
+            <button key={id} onClick={() => setTab(id)}
+              className={`${card} border ${border} rounded-2xl shadow-sm hover:shadow-md active:scale-95 transition-all flex flex-col items-center justify-center gap-2 py-5 px-2`}>
+              <div className={`w-12 h-12 rounded-xl ${dark ? 'bg-teal/20' : 'bg-teal/10'} flex items-center justify-center`}>
+                <Icon size={22} className="text-teal" />
+              </div>
+              <span className={`font-semibold ${ink} text-sm`}>{label}</span>
+              <span className={`${muted} text-xs leading-tight text-center`}>{desc}</span>
+            </button>
+          ))}
+        </div>
+
+        {pending.length > 0 && (
+          <div className={`mt-4 ${dark ? 'bg-amber-900/30 border-amber-700/40' : 'bg-amber-50 border-amber-200'} border rounded-2xl px-4 py-3 flex items-center gap-3`}>
+            <ClipboardCheck size={18} className="text-amber-500 flex-shrink-0" />
+            <p className="text-amber-500 text-sm">
+              <span className="font-semibold">{pending.length} result{pending.length > 1 ? 's' : ''}</span> awaiting admin approval
+            </p>
+          </div>
+        )}
+
+        <p className={`text-center ${muted} text-xs mt-6`}>Powered by Super League Digital</p>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LEADERBOARD TAB
+═══════════════════════════════════════════════════════════ */
+function LeaderboardTab({ standings, formByPlayer }) {
+  const { card, border, ink, muted, hover, bg } = useTheme();
+  return (
+    <div className="px-4 py-5 pb-28">
+      <SectionTitle>Standings</SectionTitle>
+      {standings.length === 0 ? (
+        <div className={`${card} border ${border} rounded-2xl p-8 text-center shadow-sm`}>
+          <Users size={32} className="text-[#5E8F9E] mx-auto mb-3" />
+          <p className={`${muted} text-sm`}>No players yet.</p>
+        </div>
+      ) : (
+        <div className={`${card} border ${border} rounded-2xl shadow-sm overflow-hidden`}>
+          {standings.map((p, i) => (
+            <Link key={p.id} href={`/players/${p.id}`}
+              className={`flex items-center gap-3 px-4 py-3.5 ${hover} transition-colors ${i === standings.length - 1 ? '' : `border-b ${border}`}`}>
+              <div className={`font-display font-bold text-2xl w-7 text-right flex-shrink-0 ${
+                i === 0 ? 'text-amber-500' : i === 1 ? 'text-slate-400' : i === 2 ? 'text-amber-700' : muted}`}>
+                {i + 1}
+              </div>
+              {p.team_picture_url ? (
+                <img src={p.team_picture_url} alt="" className={`w-10 h-10 rounded-xl object-cover flex-shrink-0 border ${border}`} />
+              ) : (
+                <div className={`w-10 h-10 rounded-xl bg-teal/10 flex-shrink-0 flex items-center justify-center border ${border}`}>
+                  <User size={16} className="text-teal" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <div className={`font-semibold ${ink} truncate`}>{p.name}</div>
+                <FormDots form={formByPlayer[p.id]} />
+              </div>
+              <div className="text-right flex-shrink-0">
+                <div className="font-mono font-bold text-teal text-base">{p.elo}</div>
+                <div className={`${muted} text-xs mt-0.5`}>{p.wins}W {p.draws}D {p.losses}L</div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+      <p className={`${muted} text-xs mt-3 text-center`}>Tap a player to view their profile.</p>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SUBMIT TAB
+═══════════════════════════════════════════════════════════ */
+function SubmitTab({ players }) {
+  const { card, border, ink, muted, inputBg, dark } = useTheme();
   const [matchA, setMatchA] = useState('');
   const [matchB, setMatchB] = useState('');
   const [scoreA, setScoreA] = useState('');
   const [scoreB, setScoreB] = useState('');
   const [submittedBy, setSubmittedBy] = useState('');
+  const [screenshotFile, setScreenshotFile] = useState(null);
   const [matchError, setMatchError] = useState('');
   const [submitOk, setSubmitOk] = useState(false);
-  const [screenshotFile, setScreenshotFile] = useState(null);
-  const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
-  // head to head
-  const [h2hA, setH2hA] = useState('');
-  const [h2hB, setH2hB] = useState('');
-  const [h2hMatches, setH2hMatches] = useState(null);
-  const [h2hLoading, setH2hLoading] = useState(false);
-
-  useEffect(() => {
-    loadAll();
-  }, []);
-
-  async function loadAll() {
-    setLoading(true);
-    try {
-      const [playersRes, matchesRes, pendingRes, seasonRes, statsRes] = await Promise.all([
-        fetch('/api/players'),
-        fetch('/api/matches'),
-        fetch('/api/pending'),
-        fetch('/api/season'),
-        fetch('/api/stats'),
-      ]);
-      setPlayers(await playersRes.json());
-      setMatches(await matchesRes.json());
-      setPending(await pendingRes.json());
-      setSeason(await seasonRes.json());
-      setStats(await statsRes.json());
-    } catch (e) {
-      console.error(e);
-    }
-    setLoading(false);
-  }
-
-  const playerById = useMemo(() => {
-    const map = {};
-    players.forEach((p) => (map[p.id] = p));
-    return map;
-  }, [players]);
-
-  function playerName(id) {
-    return playerById[id]?.name || 'Unknown';
-  }
-
-  // compute last-5 form per player from match history
-  const formByPlayer = useMemo(() => {
-    const map = {};
-    players.forEach((p) => (map[p.id] = []));
-    const chronological = [...matches].reverse();
-    chronological.forEach((m) => {
-      const aRes = m.score_a > m.score_b ? 'W' : m.score_a < m.score_b ? 'L' : 'D';
-      const bRes = m.score_a > m.score_b ? 'L' : m.score_a < m.score_b ? 'W' : 'D';
-      if (map[m.player_a]) map[m.player_a].push(aRes);
-      if (map[m.player_b]) map[m.player_b].push(bRes);
-    });
-    return map;
-  }, [matches, players]);
-
-  const standings = [...players].sort((a, b) => b.elo - a.elo);
+  const iCls = `w-full rounded-xl px-4 py-3 text-sm border shadow-sm focus:outline-none focus:ring-2 focus:ring-teal/30 ${inputBg}`;
+  const sCls = `${iCls} appearance-none`;
 
   async function submitMatch() {
     setMatchError('');
-    if (!matchA || !matchB) {
-      setMatchError('Pick both players.');
-      return;
-    }
-    if (matchA === matchB) {
-      setMatchError("A player can\u2019t play themselves.");
-      return;
-    }
-    if (scoreA === '' || scoreB === '' || isNaN(scoreA) || isNaN(scoreB)) {
-      setMatchError('Enter a final score for both sides.');
-      return;
-    }
+    if (!matchA || !matchB) { setMatchError('Pick both players.'); return; }
+    if (matchA === matchB) { setMatchError("A player can't play themselves."); return; }
+    if (scoreA === '' || scoreB === '' || isNaN(scoreA) || isNaN(scoreB)) { setMatchError('Enter scores for both sides.'); return; }
     setBusy(true);
     try {
       let screenshotUrl = null;
       if (screenshotFile) {
-        setUploadingScreenshot(true);
-        try {
-          screenshotUrl = await uploadScreenshot(screenshotFile);
-        } catch (e) {
-          setMatchError('Screenshot upload failed — try a smaller image or skip it.');
-          setUploadingScreenshot(false);
-          setBusy(false);
-          return;
-        }
-        setUploadingScreenshot(false);
+        setUploading(true);
+        try { screenshotUrl = await uploadScreenshot(screenshotFile); }
+        catch { setMatchError('Screenshot upload failed.'); setUploading(false); setBusy(false); return; }
+        setUploading(false);
       }
-
       const res = await fetch('/api/pending', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          playerA: matchA,
-          playerB: matchB,
-          scoreA,
-          scoreB,
-          submittedBy,
-          screenshotUrl,
-        }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerA: matchA, playerB: matchB, scoreA, scoreB, submittedBy, screenshotUrl }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        setMatchError(data.error || 'Could not submit result.');
-      } else {
-        setMatchA('');
-        setMatchB('');
-        setScoreA('');
-        setScoreB('');
-        setSubmittedBy('');
-        setScreenshotFile(null);
-        setSubmitOk(true);
-        setTimeout(() => setSubmitOk(false), 2500);
-        await loadAll();
-      }
-    } catch (e) {
-      setMatchError('Network error — try again.');
-    }
+      if (!res.ok) { setMatchError(data.error || 'Could not submit.'); }
+      else { setMatchA(''); setMatchB(''); setScoreA(''); setScoreB(''); setSubmittedBy(''); setScreenshotFile(null); setSubmitOk(true); setTimeout(() => setSubmitOk(false), 3000); }
+    } catch { setMatchError('Network error.'); }
     setBusy(false);
   }
 
-  async function loadHeadToHead(a, b) {
-    if (!a || !b || a === b) {
-      setH2hMatches(null);
-      return;
-    }
-    setH2hLoading(true);
-    try {
-      const res = await fetch(`/api/head-to-head?a=${a}&b=${b}`);
-      const data = await res.json();
-      setH2hMatches(Array.isArray(data) ? data : []);
-    } catch (e) {
-      setH2hMatches([]);
-    }
-    setH2hLoading(false);
-  }
-
-  useEffect(() => {
-    loadHeadToHead(h2hA, h2hB);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [h2hA, h2hB]);
-
-  const h2hSummary = useMemo(() => {
-    if (!h2hMatches || !h2hA || !h2hB) return null;
-    let aWins = 0;
-    let bWins = 0;
-    let draws = 0;
-    let aGoals = 0;
-    let bGoals = 0;
-    h2hMatches.forEach((m) => {
-      const aIsA = m.player_a === h2hA;
-      const goalsForA = aIsA ? m.score_a : m.score_b;
-      const goalsForB = aIsA ? m.score_b : m.score_a;
-      aGoals += goalsForA;
-      bGoals += goalsForB;
-      if (goalsForA > goalsForB) aWins += 1;
-      else if (goalsForA < goalsForB) bWins += 1;
-      else draws += 1;
-    });
-    return { aWins, bWins, draws, aGoals, bGoals, total: h2hMatches.length };
-  }, [h2hMatches, h2hA, h2hB]);
-
-  const tabs = [
-    { id: 'leaderboard', label: 'Table', icon: Trophy },
-    { id: 'submit', label: 'Report Result', icon: Swords },
-    { id: 'stats', label: 'Stats', icon: BarChart3 },
-    { id: 'h2h', label: 'Head-to-Head', icon: Repeat },
-    { id: 'history', label: 'History', icon: History },
-  ];
-
   return (
-    <div className="max-w-2xl mx-auto px-4 py-10">
-      <header className="mb-8">
-        <div className="flex items-end justify-between flex-wrap gap-3">
-          <h1 className="font-display font-bold text-5xl sm:text-6xl uppercase leading-none tracking-wide">
-            The Table
-          </h1>
-          <div className="font-mono text-muted text-xs sm:text-sm text-right">
-            <div>{players.length} players</div>
-            <div>{matches.length} matches logged</div>
-            {pending.length > 0 && <div className="text-gold">{pending.length} awaiting approval</div>}
-          </div>
+    <div className="px-4 py-5 pb-28">
+      <SectionTitle>Report Result</SectionTitle>
+      {players.length < 2 ? (
+        <div className={`${card} border ${border} rounded-2xl p-6 text-center shadow-sm`}>
+          <p className={`${muted} text-sm`}>At least two players are needed.</p>
         </div>
-        <div className="flex items-center justify-between flex-wrap gap-2 mt-2">
-          <p className="text-muted text-sm">
-            {season?.current ? `${season.current.name} \u00b7 ` : ''}
-            ELO ratings move with every result. Beat someone above you, climb the table.
-          </p>
-          <Link href="/admin" className="flex items-center gap-1 text-xs text-muted hover:text-chalk">
-            <ShieldCheck size={14} /> Admin
-          </Link>
-        </div>
-      </header>
-
-      <nav className="flex gap-1 mb-6 overflow-x-auto border-b border-white/10">
-        {tabs.map((t) => {
-          const Icon = t.icon;
-          const active = tab === t.id;
-          return (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`flex items-center gap-2 px-3 py-2 text-sm whitespace-nowrap transition-colors -mb-px border-b-2 ${
-                active ? 'text-chalk border-lime' : 'text-muted border-transparent'
-              }`}
-            >
-              <Icon size={16} />
-              {t.label}
-            </button>
-          );
-        })}
-      </nav>
-
-      {loading ? (
-        <div className="text-muted text-sm">Loading the table\u2026</div>
       ) : (
-        <>
-          {tab === 'leaderboard' && (
-            <section>
-              {standings.length === 0 ? (
-                <div className="bg-panel border border-white/10 rounded-lg p-6 text-center">
-                  <Users size={28} className="text-muted mx-auto mb-2" />
-                  <p className="text-muted text-sm">
-                    No players yet. An admin can add your group from the Admin panel.
-                  </p>
-                </div>
-              ) : (
-                <div className="bg-panel border border-white/10 rounded-lg overflow-hidden">
-                  {standings.map((p, i) => (
-                    <Link
-                      key={p.id}
-                      href={`/players/${p.id}`}
-                      className={`flex items-center gap-4 px-4 py-3 hover:bg-panelAlt transition-colors ${
-                        i === standings.length - 1 ? '' : 'border-b border-white/10'
-                      }`}
-                    >
-                      <div
-                        className={`font-display font-semibold text-3xl w-8 text-right ${
-                          i === 0 ? 'text-gold' : 'text-muted'
-                        }`}
-                      >
-                        {i + 1}
-                      </div>
-                      {p.team_picture_url ? (
-                        <img
-                          src={p.team_picture_url}
-                          alt=""
-                          className="w-9 h-9 rounded-md object-cover flex-shrink-0 border border-white/10"
-                        />
-                      ) : (
-                        <div className="w-9 h-9 rounded-md bg-panelAlt flex-shrink-0 border border-white/10" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">{p.name}</div>
-                        <FormDots form={formByPlayer[p.id]} />
-                      </div>
-                      <div className="text-right">
-                        <div className="font-mono text-lg">{p.elo}</div>
-                        <div className="text-muted text-xs mt-1">
-                          {p.wins}W {p.draws}D {p.losses}L
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              )}
-              <p className="text-muted text-xs mt-3">
-                Tap a player to view their profile, team picture, and highest rank.
-              </p>
-            </section>
+        <div className="space-y-4">
+          <div className={`${card} border ${border} rounded-2xl shadow-sm p-4`}>
+            <div className="grid grid-cols-[1fr_40px_1fr] gap-2 items-end">
+              <div>
+                <label className={`block ${muted} text-xs uppercase tracking-wide mb-1.5`}>Home</label>
+                <select value={matchA} onChange={(e) => setMatchA(e.target.value)} className={sCls}>
+                  <option value="">Player…</option>
+                  {players.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+                <input type="number" value={scoreA} onChange={(e) => setScoreA(e.target.value)}
+                  placeholder="0" className={`${iCls} mt-2 text-center text-xl font-mono font-bold`} />
+              </div>
+              <div className="flex items-end justify-center pb-3">
+                <span className={`font-display font-bold text-2xl ${muted}`}>vs</span>
+              </div>
+              <div>
+                <label className={`block ${muted} text-xs uppercase tracking-wide mb-1.5`}>Away</label>
+                <select value={matchB} onChange={(e) => setMatchB(e.target.value)} className={sCls}>
+                  <option value="">Player…</option>
+                  {players.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+                <input type="number" value={scoreB} onChange={(e) => setScoreB(e.target.value)}
+                  placeholder="0" className={`${iCls} mt-2 text-center text-xl font-mono font-bold`} />
+              </div>
+            </div>
+          </div>
+
+          <div className={`${card} border ${border} rounded-2xl shadow-sm p-4 space-y-3`}>
+            <div>
+              <label className={`block ${muted} text-xs uppercase tracking-wide mb-1.5`}>Reported by</label>
+              <input value={submittedBy} onChange={(e) => setSubmittedBy(e.target.value)} placeholder="Your name" className={iCls} />
+            </div>
+            <div>
+              <label className={`block ${muted} text-xs uppercase tracking-wide mb-1.5`}>Screenshot (optional)</label>
+              <input type="file" accept="image/*" onChange={(e) => setScreenshotFile(e.target.files?.[0] || null)}
+                className="w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-teal/10 file:px-3 file:py-2 file:text-teal file:text-sm file:font-medium" />
+              {screenshotFile && <p className={`${muted} text-xs mt-1 flex items-center gap-1`}><ImageIcon size={12} /> {screenshotFile.name}</p>}
+            </div>
+          </div>
+
+          {matchError && <div className="bg-red-500/10 border border-red-400/30 rounded-xl px-4 py-3"><p className="text-red-400 text-sm">{matchError}</p></div>}
+          {submitOk && (
+            <div className="bg-green-500/10 border border-green-400/30 rounded-xl px-4 py-3 flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-green-500 flex-shrink-0" />
+              <p className="text-green-500 text-sm">Sent for approval!</p>
+            </div>
           )}
-
-          {tab === 'submit' && (
-            <section className="bg-panel border border-white/10 rounded-lg p-4 sm:p-5">
-              {players.length < 2 ? (
-                <p className="text-muted text-sm">
-                  At least two players are needed before you can report a result.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-muted text-xs uppercase tracking-wide mb-1">Home</label>
-                      <select
-                        value={matchA}
-                        onChange={(e) => setMatchA(e.target.value)}
-                        className="w-full rounded-md px-3 py-2 text-sm bg-panelAlt border border-white/10 text-chalk"
-                      >
-                        <option value="">Select player</option>
-                        {players.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="number"
-                        value={scoreA}
-                        onChange={(e) => setScoreA(e.target.value)}
-                        placeholder="Goals"
-                        className="w-full rounded-md px-3 py-2 text-sm mt-2 bg-panelAlt border border-white/10 text-chalk font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-muted text-xs uppercase tracking-wide mb-1">Away</label>
-                      <select
-                        value={matchB}
-                        onChange={(e) => setMatchB(e.target.value)}
-                        className="w-full rounded-md px-3 py-2 text-sm bg-panelAlt border border-white/10 text-chalk"
-                      >
-                        <option value="">Select player</option>
-                        {players.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="number"
-                        value={scoreB}
-                        onChange={(e) => setScoreB(e.target.value)}
-                        placeholder="Goals"
-                        className="w-full rounded-md px-3 py-2 text-sm mt-2 bg-panelAlt border border-white/10 text-chalk font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-muted text-xs uppercase tracking-wide mb-1">Reported by</label>
-                    <input
-                      value={submittedBy}
-                      onChange={(e) => setSubmittedBy(e.target.value)}
-                      placeholder="Your name"
-                      className="w-full rounded-md px-3 py-2 text-sm bg-panelAlt border border-white/10 text-chalk"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-muted text-xs uppercase tracking-wide mb-1">
-                      Screenshot (optional)
-                    </label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => setScreenshotFile(e.target.files?.[0] || null)}
-                      className="w-full text-sm text-muted file:mr-3 file:rounded-md file:border-0 file:bg-panelAlt file:px-3 file:py-2 file:text-chalk file:text-sm"
-                    />
-                    {screenshotFile && (
-                      <p className="text-muted text-xs mt-1 flex items-center gap-1">
-                        <ImageIcon size={12} /> {screenshotFile.name}
-                      </p>
-                    )}
-                    <p className="text-muted text-xs mt-1">
-                      A screenshot of the final score helps the admin verify the result.
-                    </p>
-                  </div>
-
-                  {matchError && <p className="text-coral text-sm">{matchError}</p>}
-                  {submitOk && (
-                    <p className="text-lime text-sm">
-                      Sent for approval. It\u2019ll hit the table once an admin confirms it.
-                    </p>
-                  )}
-
-                  <button
-                    onClick={submitMatch}
-                    disabled={busy}
-                    className="w-full flex items-center justify-center gap-2 rounded-md px-3 py-2.5 text-sm font-medium bg-lime text-pitch disabled:opacity-60"
-                  >
-                    {uploadingScreenshot ? (
-                      <>
-                        <Loader2 size={16} className="animate-spin" /> Uploading screenshot\u2026
-                      </>
-                    ) : (
-                      'Submit result for approval'
-                    )}
-                  </button>
-                </div>
-              )}
-            </section>
-          )}
-
-          {tab === 'stats' && (
-            <section className="space-y-6">
-              {!stats ? (
-                <p className="text-muted text-sm">Loading stats\u2026</p>
-              ) : (
-                <>
-                  <StatBlock
-                    title="This week"
-                    eloLeaders={stats.weekly.eloLeaders}
-                    winRateLeaders={stats.weekly.winRateLeaders}
-                    minGames={stats.weekly.minGames}
-                  />
-                  <StatBlock
-                    title="This month"
-                    eloLeaders={stats.monthly.eloLeaders}
-                    winRateLeaders={stats.monthly.winRateLeaders}
-                    minGames={stats.monthly.minGames}
-                  />
-
-                  <div>
-                    <h3 className="flex items-center gap-2 font-display font-semibold text-xl uppercase tracking-wide mb-2">
-                      <Target size={18} /> Top scorers {season?.current ? `\u2014 ${season.current.name}` : ''}
-                    </h3>
-                    {stats.topScorers.length === 0 ? (
-                      <div className="bg-panel border border-white/10 rounded-lg p-4 text-muted text-sm">
-                        No goals recorded yet this season.
-                      </div>
-                    ) : (
-                      <div className="bg-panel border border-white/10 rounded-lg overflow-hidden">
-                        {stats.topScorers.map((s, i) => (
-                          <div
-                            key={s.playerId}
-                            className={`flex items-center justify-between px-4 py-2.5 ${
-                              i === stats.topScorers.length - 1 ? '' : 'border-b border-white/10'
-                            }`}
-                          >
-                            <span className="text-sm">{i + 1}. {s.name}</span>
-                            <span className="font-mono text-sm text-lime">{s.goals} goals</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </section>
-          )}
-
-          {tab === 'h2h' && (
-            <section>
-              {players.length < 2 ? (
-                <div className="bg-panel border border-white/10 rounded-lg p-6 text-center">
-                  <p className="text-muted text-sm">Add at least two players to compare records.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-muted text-xs uppercase tracking-wide mb-1">Player 1</label>
-                      <select
-                        value={h2hA}
-                        onChange={(e) => setH2hA(e.target.value)}
-                        className="w-full rounded-md px-3 py-2 text-sm bg-panelAlt border border-white/10 text-chalk"
-                      >
-                        <option value="">Select player</option>
-                        {players.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-muted text-xs uppercase tracking-wide mb-1">Player 2</label>
-                      <select
-                        value={h2hB}
-                        onChange={(e) => setH2hB(e.target.value)}
-                        className="w-full rounded-md px-3 py-2 text-sm bg-panelAlt border border-white/10 text-chalk"
-                      >
-                        <option value="">Select player</option>
-                        {players.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  {!h2hA || !h2hB ? (
-                    <div className="bg-panel border border-white/10 rounded-lg p-6 text-center">
-                      <Repeat size={24} className="text-muted mx-auto mb-2" />
-                      <p className="text-muted text-sm">Pick two players to see their head-to-head record.</p>
-                    </div>
-                  ) : h2hA === h2hB ? (
-                    <p className="text-coral text-sm">Pick two different players.</p>
-                  ) : h2hLoading ? (
-                    <p className="text-muted text-sm">Loading\u2026</p>
-                  ) : h2hSummary && h2hSummary.total === 0 ? (
-                    <div className="bg-panel border border-white/10 rounded-lg p-6 text-center">
-                      <p className="text-muted text-sm">
-                        {playerName(h2hA)} and {playerName(h2hB)} haven\u2019t played each other yet.
-                      </p>
-                    </div>
-                  ) : h2hSummary ? (
-                    <>
-                      <div className="bg-panel border border-white/10 rounded-lg p-4">
-                        <div className="grid grid-cols-3 text-center items-center">
-                          <div>
-                            <div className="font-medium truncate">{playerName(h2hA)}</div>
-                            <div className="font-display font-bold text-4xl text-lime">{h2hSummary.aWins}</div>
-                            <div className="text-muted text-xs">wins</div>
-                          </div>
-                          <div>
-                            <div className="text-muted text-xs uppercase tracking-wide">Draws</div>
-                            <div className="font-display font-bold text-4xl text-gold">{h2hSummary.draws}</div>
-                            <div className="text-muted text-xs">{h2hSummary.total} played</div>
-                          </div>
-                          <div>
-                            <div className="font-medium truncate">{playerName(h2hB)}</div>
-                            <div className="font-display font-bold text-4xl text-lime">{h2hSummary.bWins}</div>
-                            <div className="text-muted text-xs">wins</div>
-                          </div>
-                        </div>
-                        <div className="mt-3 pt-3 border-t border-white/10 text-center font-mono text-sm text-muted">
-                          Goals: {h2hSummary.aGoals} \u2013 {h2hSummary.bGoals}
-                        </div>
-                      </div>
-
-                      <div className="bg-panel border border-white/10 rounded-lg overflow-hidden">
-                        {h2hMatches.map((m, i) => (
-                          <div
-                            key={m.id}
-                            className={`px-4 py-3 flex items-center justify-between gap-3 flex-wrap ${
-                              i === h2hMatches.length - 1 ? '' : 'border-b border-white/10'
-                            }`}
-                          >
-                            <div className="font-mono text-sm">
-                              {playerName(m.player_a)}{' '}
-                              <span className="text-muted">
-                                {m.score_a} \u2013 {m.score_b}
-                              </span>{' '}
-                              {playerName(m.player_b)}
-                            </div>
-                            <div className="text-muted text-xs">
-                              {new Date(m.approved_at).toLocaleDateString()}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  ) : null}
-                </div>
-              )}
-            </section>
-          )}
-
-          {tab === 'history' && (
-            <section>
-              {matches.length === 0 ? (
-                <div className="bg-panel border border-white/10 rounded-lg p-6 text-center">
-                  <p className="text-muted text-sm">No matches confirmed yet.</p>
-                </div>
-              ) : (
-                <div className="bg-panel border border-white/10 rounded-lg overflow-hidden">
-                  {matches.map((m, i) => (
-                    <div
-                      key={m.id}
-                      className={`px-4 py-3 ${i === matches.length - 1 ? '' : 'border-b border-white/10'}`}
-                    >
-                      <div className="flex items-center justify-between gap-3 flex-wrap">
-                        <div className="font-mono text-sm sm:text-base">
-                          {playerName(m.player_a)}{' '}
-                          <span className="text-muted">
-                            {m.score_a} \u2013 {m.score_b}
-                          </span>{' '}
-                          {playerName(m.player_b)}
-                        </div>
-                        <div className="flex items-center gap-3">
-                          {m.screenshot_url && (
-                            <a
-                              href={m.screenshot_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-muted hover:text-lime"
-                              title="View screenshot"
-                            >
-                              <ImageIcon size={14} />
-                            </a>
-                          )}
-                          <div className="text-muted text-xs">
-                            {new Date(m.approved_at).toLocaleDateString()}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex gap-4 mt-1 text-xs font-mono">
-                        <span className={m.delta_a >= 0 ? 'text-lime' : 'text-coral'}>
-                          {playerName(m.player_a)} {m.delta_a >= 0 ? '+' : ''}
-                          {m.delta_a} \u2192 {m.elo_a_after}
-                        </span>
-                        <span className={m.delta_b >= 0 ? 'text-lime' : 'text-coral'}>
-                          {playerName(m.player_b)} {m.delta_b >= 0 ? '+' : ''}
-                          {m.delta_b} \u2192 {m.elo_b_after}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          )}
-        </>
+          <button onClick={submitMatch} disabled={busy}
+            className="w-full flex items-center justify-center gap-2 rounded-2xl px-4 py-3.5 text-sm font-semibold bg-teal text-white shadow-sm hover:bg-[#2A6478] active:scale-95 transition-all disabled:opacity-60">
+            {uploading ? <><Loader2 size={16} className="animate-spin" /> Uploading…</> : busy ? <><Loader2 size={16} className="animate-spin" /> Submitting…</> : 'Submit Result for Approval'}
+          </button>
+        </div>
       )}
     </div>
   );
 }
 
+/* ═══════════════════════════════════════════════════════════
+   APPROVAL TAB
+═══════════════════════════════════════════════════════════ */
+function ApprovalTab({ pending, playerById }) {
+  const { card, border, ink, muted } = useTheme();
+  function playerName(id) { return playerById[id]?.name || 'Unknown'; }
+  return (
+    <div className="px-4 py-5 pb-28">
+      <SectionTitle>Pending Approval</SectionTitle>
+      {pending.length === 0 ? (
+        <div className={`${card} border ${border} rounded-2xl p-8 text-center shadow-sm`}>
+          <CheckCircle2 size={32} className="text-green-500 mx-auto mb-3" />
+          <p className={`${muted} text-sm`}>All results approved!</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {pending.map((m) => (
+            <div key={m.id} className={`${card} border border-amber-400/30 rounded-2xl shadow-sm px-4 py-4`}>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className={`font-semibold ${ink}`}>{playerName(m.player_a)} <span className="font-mono text-teal">{m.score_a} – {m.score_b}</span> {playerName(m.player_b)}</p>
+                  {m.submitted_by && <p className={`${muted} text-xs mt-0.5`}>Reported by {m.submitted_by}</p>}
+                </div>
+                <span className="bg-amber-400/20 text-amber-500 text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0">Pending</span>
+              </div>
+              {m.screenshot_url && (
+                <a href={m.screenshot_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-teal text-xs mt-2 hover:underline">
+                  <ImageIcon size={12} /> View screenshot
+                </a>
+              )}
+            </div>
+          ))}
+          <p className={`${muted} text-xs text-center mt-2`}>Admin approval required — <Link href="/admin" className="text-teal underline">Admin panel</Link></p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   STATS TAB
+═══════════════════════════════════════════════════════════ */
+function StatsTab({ stats, season }) {
+  const { muted } = useTheme();
+  if (!stats) return <div className="px-4 py-5 pb-28"><p className={`${muted} text-sm`}>Loading stats…</p></div>;
+  return (
+    <div className="px-4 py-5 pb-28 space-y-6">
+      <StatBlock title="This week" eloLeaders={stats.weekly.eloLeaders} winRateLeaders={stats.weekly.winRateLeaders} minGames={stats.weekly.minGames} />
+      <StatBlock title="This month" eloLeaders={stats.monthly.eloLeaders} winRateLeaders={stats.monthly.winRateLeaders} minGames={stats.monthly.minGames} />
+      <div>
+        <SectionTitle>Top Scorers {season?.current ? `— ${season.current.name}` : ''}</SectionTitle>
+        {stats.topScorers.length === 0 ? (
+          <div className="text-sm text-[#4A6273]">No goals recorded yet.</div>
+        ) : (
+          <TopScorersList scorers={stats.topScorers} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TopScorersList({ scorers }) {
+  const { card, border, ink, muted } = useTheme();
+  return (
+    <div className={`${card} border ${border} rounded-2xl shadow-sm overflow-hidden`}>
+      {scorers.map((s, i) => (
+        <div key={s.playerId} className={`flex items-center justify-between px-4 py-3 ${i === scorers.length - 1 ? '' : `border-b ${border}`}`}>
+          <span className={`text-sm ${ink}`}>{i + 1}. {s.name}</span>
+          <span className="font-mono text-sm font-bold text-teal">{s.goals} goals</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function StatBlock({ title, eloLeaders, winRateLeaders, minGames }) {
+  const { card, border, ink, muted } = useTheme();
   return (
     <div>
-      <h3 className="font-display font-semibold text-xl uppercase tracking-wide mb-2">{title}</h3>
+      <SectionTitle>{title}</SectionTitle>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <p className="text-muted text-xs uppercase tracking-wide mb-1">Most ELO gained</p>
+          <p className={`${muted} text-xs uppercase tracking-wide mb-1.5 flex items-center gap-1`}><TrendingUp size={12} /> Most ELO gained</p>
           {eloLeaders.length === 0 ? (
-            <div className="bg-panel border border-white/10 rounded-lg p-3 text-muted text-sm">No matches yet.</div>
+            <div className={`${card} border ${border} rounded-2xl p-3 ${muted} text-sm shadow-sm`}>No matches yet.</div>
           ) : (
-            <div className="bg-panel border border-white/10 rounded-lg overflow-hidden">
+            <div className={`${card} border ${border} rounded-2xl shadow-sm overflow-hidden`}>
               {eloLeaders.map((l, i) => (
-                <div
-                  key={l.playerId}
-                  className={`flex items-center justify-between px-3 py-2 text-sm ${
-                    i === eloLeaders.length - 1 ? '' : 'border-b border-white/10'
-                  }`}
-                >
-                  <span>{i + 1}. {l.name}</span>
-                  <span className={`font-mono ${l.eloGain >= 0 ? 'text-lime' : 'text-coral'}`}>
-                    {l.eloGain >= 0 ? '+' : ''}{l.eloGain}
-                  </span>
+                <div key={l.playerId} className={`flex items-center justify-between px-4 py-2.5 text-sm ${i === eloLeaders.length - 1 ? '' : `border-b ${border}`}`}>
+                  <span className={ink}>{i + 1}. {l.name}</span>
+                  <span className={`font-mono font-bold ${l.eloGain >= 0 ? 'text-green-500' : 'text-red-400'}`}>{l.eloGain >= 0 ? '+' : ''}{l.eloGain}</span>
                 </div>
               ))}
             </div>
           )}
         </div>
         <div>
-          <p className="text-muted text-xs uppercase tracking-wide mb-1">Best win rate (min {minGames} games)</p>
+          <p className={`${muted} text-xs uppercase tracking-wide mb-1.5 flex items-center gap-1`}><Trophy size={12} /> Best win rate (min {minGames})</p>
           {winRateLeaders.length === 0 ? (
-            <div className="bg-panel border border-white/10 rounded-lg p-3 text-muted text-sm">
-              Not enough matches yet.
-            </div>
+            <div className={`${card} border ${border} rounded-2xl p-3 ${muted} text-sm shadow-sm`}>Not enough matches.</div>
           ) : (
-            <div className="bg-panel border border-white/10 rounded-lg overflow-hidden">
+            <div className={`${card} border ${border} rounded-2xl shadow-sm overflow-hidden`}>
               {winRateLeaders.map((l, i) => (
-                <div
-                  key={l.playerId}
-                  className={`flex items-center justify-between px-3 py-2 text-sm ${
-                    i === winRateLeaders.length - 1 ? '' : 'border-b border-white/10'
-                  }`}
-                >
-                  <span>{i + 1}. {l.name}</span>
-                  <span className="font-mono text-lime">
-                    {Math.round(l.winRate * 100)}% ({l.wins}/{l.games})
-                  </span>
+                <div key={l.playerId} className={`flex items-center justify-between px-4 py-2.5 text-sm ${i === winRateLeaders.length - 1 ? '' : `border-b ${border}`}`}>
+                  <span className={ink}>{i + 1}. {l.name}</span>
+                  <span className="font-mono font-bold text-teal">{Math.round(l.winRate * 100)}%</span>
                 </div>
               ))}
             </div>
@@ -703,5 +437,386 @@ function StatBlock({ title, eloLeaders, winRateLeaders, minGames }) {
         </div>
       </div>
     </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   H2H TAB
+═══════════════════════════════════════════════════════════ */
+function H2hTab({ players }) {
+  const { card, border, ink, muted, inputBg } = useTheme();
+  const [h2hA, setH2hA] = useState('');
+  const [h2hB, setH2hB] = useState('');
+  const [h2hMatches, setH2hMatches] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const sCls = `w-full rounded-xl px-4 py-3 text-sm border shadow-sm focus:outline-none focus:ring-2 focus:ring-teal/30 appearance-none ${inputBg}`;
+
+  const playerById = useMemo(() => { const m = {}; players.forEach((p) => (m[p.id] = p)); return m; }, [players]);
+  function playerName(id) { return playerById[id]?.name || 'Unknown'; }
+
+  useEffect(() => {
+    if (!h2hA || !h2hB || h2hA === h2hB) { setH2hMatches(null); return; }
+    setLoading(true);
+    fetch(`/api/head-to-head?a=${h2hA}&b=${h2hB}`)
+      .then((r) => r.json())
+      .then((d) => { setH2hMatches(Array.isArray(d) ? d : []); setLoading(false); })
+      .catch(() => { setH2hMatches([]); setLoading(false); });
+  }, [h2hA, h2hB]);
+
+  const summary = useMemo(() => {
+    if (!h2hMatches || !h2hA || !h2hB) return null;
+    let aWins = 0, bWins = 0, draws = 0, aGoals = 0, bGoals = 0;
+    h2hMatches.forEach((m) => {
+      const aIsA = m.player_a === h2hA;
+      const ga = aIsA ? m.score_a : m.score_b; const gb = aIsA ? m.score_b : m.score_a;
+      aGoals += ga; bGoals += gb;
+      if (ga > gb) aWins++; else if (ga < gb) bWins++; else draws++;
+    });
+    return { aWins, bWins, draws, aGoals, bGoals, total: h2hMatches.length };
+  }, [h2hMatches, h2hA, h2hB]);
+
+  return (
+    <div className="px-4 py-5 pb-28 space-y-4">
+      <SectionTitle>Head-to-Head</SectionTitle>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={`block ${muted} text-xs uppercase tracking-wide mb-1.5`}>Player 1</label>
+          <select value={h2hA} onChange={(e) => setH2hA(e.target.value)} className={sCls}>
+            <option value="">Select…</option>
+            {players.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={`block ${muted} text-xs uppercase tracking-wide mb-1.5`}>Player 2</label>
+          <select value={h2hB} onChange={(e) => setH2hB(e.target.value)} className={sCls}>
+            <option value="">Select…</option>
+            {players.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {(!h2hA || !h2hB || h2hA === h2hB) ? (
+        <div className={`${card} border ${border} rounded-2xl p-8 text-center shadow-sm`}>
+          <Repeat size={28} className="text-[#5E8F9E] mx-auto mb-2" />
+          <p className={`${muted} text-sm`}>Pick two players to see their record.</p>
+        </div>
+      ) : loading ? (
+        <div className={`${card} border ${border} rounded-2xl p-6 text-center shadow-sm`}><Loader2 size={20} className="animate-spin text-teal mx-auto" /></div>
+      ) : summary && summary.total === 0 ? (
+        <div className={`${card} border ${border} rounded-2xl p-6 text-center shadow-sm`}><p className={`${muted} text-sm`}>No matches between these players yet.</p></div>
+      ) : summary ? (
+        <>
+          <div className={`${card} border ${border} rounded-2xl shadow-sm p-5`}>
+            <div className="grid grid-cols-3 text-center items-center">
+              <div>
+                <div className={`font-semibold ${ink} truncate text-sm`}>{playerName(h2hA)}</div>
+                <div className="font-display font-bold text-5xl text-teal mt-1">{summary.aWins}</div>
+                <div className={`${muted} text-xs`}>wins</div>
+              </div>
+              <div>
+                <div className={`${muted} text-xs uppercase tracking-wide`}>Draws</div>
+                <div className="font-display font-bold text-4xl text-amber-500 mt-1">{summary.draws}</div>
+                <div className={`${muted} text-xs`}>{summary.total} played</div>
+              </div>
+              <div>
+                <div className={`font-semibold ${ink} truncate text-sm`}>{playerName(h2hB)}</div>
+                <div className="font-display font-bold text-5xl text-teal mt-1">{summary.bWins}</div>
+                <div className={`${muted} text-xs`}>wins</div>
+              </div>
+            </div>
+            <div className={`mt-4 pt-4 border-t ${border} text-center font-mono text-sm ${muted}`}>Goals: {summary.aGoals} – {summary.bGoals}</div>
+          </div>
+          <div className={`${card} border ${border} rounded-2xl shadow-sm overflow-hidden`}>
+            {h2hMatches.map((m, i) => (
+              <div key={m.id} className={`px-4 py-3 flex items-center justify-between gap-3 ${i === h2hMatches.length - 1 ? '' : `border-b ${border}`}`}>
+                <div className={`font-mono text-sm ${ink}`}>{playerName(m.player_a)} <span className={muted}>{m.score_a} – {m.score_b}</span> {playerName(m.player_b)}</div>
+                <div className={`${muted} text-xs`}>{new Date(m.approved_at).toLocaleDateString()}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   HISTORY TAB
+═══════════════════════════════════════════════════════════ */
+function HistoryTab({ matches, playerById }) {
+  const { card, border, ink, muted } = useTheme();
+  function playerName(id) { return playerById[id]?.name || 'Unknown'; }
+  return (
+    <div className="px-4 py-5 pb-28">
+      <SectionTitle>Match History</SectionTitle>
+      {matches.length === 0 ? (
+        <div className={`${card} border ${border} rounded-2xl p-8 text-center shadow-sm`}>
+          <History size={32} className="text-[#5E8F9E] mx-auto mb-3" />
+          <p className={`${muted} text-sm`}>No matches confirmed yet.</p>
+        </div>
+      ) : (
+        <div className={`${card} border ${border} rounded-2xl shadow-sm overflow-hidden`}>
+          {matches.map((m, i) => (
+            <div key={m.id} className={`px-4 py-3.5 ${i === matches.length - 1 ? '' : `border-b ${border}`}`}>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className={`font-mono text-sm ${ink}`}>{playerName(m.player_a)} <span className={muted}>{m.score_a} – {m.score_b}</span> {playerName(m.player_b)}</div>
+                <div className="flex items-center gap-2">
+                  {m.screenshot_url && <a href={m.screenshot_url} target="_blank" rel="noopener noreferrer" className="text-teal"><ImageIcon size={14} /></a>}
+                  <span className={`${muted} text-xs`}>{new Date(m.approved_at).toLocaleDateString()}</span>
+                </div>
+              </div>
+              <div className="flex gap-4 mt-1 text-xs font-mono">
+                <span className={m.delta_a >= 0 ? 'text-green-500' : 'text-red-400'}>{playerName(m.player_a)} {m.delta_a >= 0 ? '+' : ''}{m.delta_a} → {m.elo_a_after}</span>
+                <span className={m.delta_b >= 0 ? 'text-green-500' : 'text-red-400'}>{playerName(m.player_b)} {m.delta_b >= 0 ? '+' : ''}{m.delta_b} → {m.elo_b_after}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   HALL OF FAME TAB
+═══════════════════════════════════════════════════════════ */
+function HallOfFameTab({ players, trophies }) {
+  const { card, border, ink, muted, dark } = useTheme();
+  const playerById = useMemo(() => { const m = {}; players.forEach((p) => (m[p.id] = p)); return m; }, [players]);
+  const trophiesByPlayer = useMemo(() => {
+    const map = {};
+    trophies.forEach((t) => { if (!map[t.player_id]) map[t.player_id] = []; map[t.player_id].push(t); });
+    return map;
+  }, [trophies]);
+  const playerIds = Object.keys(trophiesByPlayer);
+
+  return (
+    <div className="px-4 py-5 pb-28">
+      <div className="relative rounded-2xl overflow-hidden mb-5 h-28" style={{ background: 'linear-gradient(135deg, #1B4D5C 0%, #0F2A34 100%)' }}>
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+          <div className="text-3xl mb-1">🏆</div>
+          <h2 className="font-display font-bold text-2xl uppercase tracking-widest">Hall of Fame</h2>
+          <p className="text-white/60 text-xs mt-0.5">Legends of the Super League</p>
+        </div>
+      </div>
+
+      {playerIds.length === 0 ? (
+        <div className={`${card} border ${border} rounded-2xl p-10 text-center shadow-sm`}>
+          <div className="text-5xl mb-3">🏆</div>
+          <p className={`${ink} font-semibold mb-1`}>No legends yet</p>
+          <p className={`${muted} text-sm`}>An admin can award trophies from the Admin panel.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {playerIds.map((pid) => {
+            const player = playerById[pid];
+            if (!player) return null;
+            const pts = trophiesByPlayer[pid];
+            const winCount = pts.filter(t => t.trophy_type === 'winner').reduce((s, t) => s + t.count, 0);
+            return (
+              <div key={pid} className={`${card} border ${border} rounded-2xl shadow-sm overflow-hidden`}>
+                <div className="h-1.5" style={{ background: 'linear-gradient(90deg, #F59E0B, #FCD34D, #F59E0B)' }} />
+                <div className="p-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    {player.team_picture_url ? (
+                      <img src={player.team_picture_url} alt="" className="w-14 h-14 rounded-xl object-cover border-2 border-amber-300 flex-shrink-0" />
+                    ) : (
+                      <div className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center border-2 border-amber-300" style={{ background: 'linear-gradient(135deg,#1B4D5C,#2A6478)' }}>
+                        <span className="text-white font-display font-bold text-xl">{player.name.charAt(0).toUpperCase()}</span>
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <h3 className={`font-display font-bold text-xl uppercase leading-tight ${ink} truncate`}>{player.name}</h3>
+                      <p className={`${muted} text-xs mt-0.5`}>{pts.length} trophy record{pts.length !== 1 ? 's' : ''}</p>
+                    </div>
+                    <span className="text-2xl flex-shrink-0">{'🏆'.repeat(Math.min(winCount, 3))}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {pts.map((t) => {
+                      const info = TROPHY_TYPES[t.trophy_type] || TROPHY_TYPES.winner;
+                      return (
+                        <div key={t.id} className="flex items-center gap-3 rounded-xl px-3 py-2.5 border"
+                          style={{ background: dark ? info.color + '18' : info.bg, borderColor: dark ? info.color + '40' : info.border }}>
+                          <span className="text-lg flex-shrink-0">{info.emoji}</span>
+                          <div className="flex-1 min-w-0">
+                            <span className="font-semibold text-sm" style={{ color: info.color }}>{t.competition_name}</span>
+                            <span className={`${muted} text-xs ml-2`}>{info.label}</span>
+                          </div>
+                          {t.count > 1 && (
+                            <span className="flex-shrink-0 font-bold text-sm px-2 py-0.5 rounded-full" style={{ background: info.border, color: info.color }}>{t.count}x</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BOTTOM NAV
+═══════════════════════════════════════════════════════════ */
+function BottomNav({ tab, setTab }) {
+  const { navBg, navBorder } = useTheme();
+  const items = [
+    { id: 'home',        label: 'Home',      Icon: HomeIcon },
+    { id: 'leaderboard', label: 'Standings', Icon: ListOrdered },
+    { id: 'submit',      label: 'Report',    Icon: Swords },
+    { id: 'stats',       label: 'Stats',     Icon: BarChart3 },
+    { id: 'halloffame',  label: 'Hall of Fame', Icon: Trophy },
+  ];
+  return (
+    <nav className={`fixed bottom-0 left-0 right-0 z-50 ${navBg} border-t ${navBorder}`}>
+      <div className="max-w-lg mx-auto flex items-stretch">
+        {items.map(({ id, label, Icon }) => {
+          const active = tab === id;
+          return (
+            <button key={id} onClick={() => setTab(id)}
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 transition-colors relative ${active ? 'text-teal' : 'text-[#7A9BAD]'}`}>
+              {active && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-teal rounded-b-full" />}
+              <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
+              <span className="text-[9px] font-medium leading-tight text-center px-1">{label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TOP HEADER
+═══════════════════════════════════════════════════════════ */
+function TopHeader({ tab, dark, toggleDark }) {
+  const { navBg, navBorder, ink, muted } = useTheme();
+  const titles = {
+    home: null,
+    leaderboard: 'Standings', submit: 'Report Result',
+    approval: 'Pending Approval', stats: 'Statistics',
+    h2h: 'Head-to-Head', history: 'Match History', halloffame: 'Hall of Fame',
+  };
+  if (tab === 'home') return null;
+  return (
+    <header className={`sticky top-0 z-40 ${navBg} border-b ${navBorder} px-4 py-3 flex items-center justify-between`}>
+      <h1 className={`font-display font-bold text-2xl uppercase tracking-wide ${ink}`}>{titles[tab]}</h1>
+      <div className="flex items-center gap-3">
+        <button onClick={toggleDark} className={`w-9 h-9 rounded-xl flex items-center justify-center ${dark ? 'bg-[#1E3040]' : 'bg-[#F0F4F8]'} transition-all`}>
+          {dark ? <Sun size={16} className="text-amber-400" /> : <Moon size={16} className="text-[#4A6273]" />}
+        </button>
+        <Link href="/admin" className={`flex items-center gap-1 text-xs ${muted} hover:text-teal transition-colors`}>
+          <ShieldCheck size={15} /> Admin
+        </Link>
+      </div>
+    </header>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ROOT
+═══════════════════════════════════════════════════════════ */
+export default function Home() {
+  const [players, setPlayers]   = useState([]);
+  const [matches, setMatches]   = useState([]);
+  const [pending, setPending]   = useState([]);
+  const [season, setSeason]     = useState(null);
+  const [stats, setStats]       = useState(null);
+  const [trophies, setTrophies] = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [tab, setTab]           = useState('home');
+  const [dark, setDark]         = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('sl-dark') === 'true' ||
+        window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false;
+  });
+
+  function toggleDark() {
+    setDark((d) => {
+      localStorage.setItem('sl-dark', String(!d));
+      return !d;
+    });
+  }
+
+  useEffect(() => { loadAll(); }, []);
+
+  async function loadAll() {
+    setLoading(true);
+    try {
+      const [pR, mR, pdR, sR, stR, tR] = await Promise.all([
+        fetch('/api/players'), fetch('/api/matches'), fetch('/api/pending'),
+        fetch('/api/season'), fetch('/api/stats'), fetch('/api/trophies'),
+      ]);
+      const pData = await pR.json(); setPlayers(Array.isArray(pData) ? pData : []);
+      const mData = await mR.json(); setMatches(Array.isArray(mData) ? mData : []);
+      const pdData = await pdR.json(); setPending(Array.isArray(pdData) ? pdData : []);
+      setSeason(await sR.json());
+      setStats(await stR.json());
+      const tData = await tR.json(); setTrophies(Array.isArray(tData) ? tData : []);
+    } catch (e) { console.error(e); }
+    setLoading(false);
+  }
+
+  const playerById = useMemo(() => { const m = {}; players.forEach((p) => (m[p.id] = p)); return m; }, [players]);
+  const formByPlayer = useMemo(() => {
+    const map = {}; players.forEach((p) => (map[p.id] = []));
+    [...matches].reverse().forEach((m) => {
+      const aR = m.score_a > m.score_b ? 'W' : m.score_a < m.score_b ? 'L' : 'D';
+      const bR = m.score_a > m.score_b ? 'L' : m.score_a < m.score_b ? 'W' : 'D';
+      if (map[m.player_a]) map[m.player_a].push(aR);
+      if (map[m.player_b]) map[m.player_b].push(bR);
+    });
+    return map;
+  }, [matches, players]);
+
+  const standings = [...players].sort((a, b) => b.elo - a.elo);
+  const bgClass = dark ? 'bg-[#0D1B24]' : 'bg-[#F0F4F8]';
+
+  if (loading) {
+    return (
+      <DarkContext.Provider value={dark}>
+        <div className={`flex items-center justify-center min-h-screen ${bgClass}`}>
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-teal/10 flex items-center justify-center">
+              <Trophy size={22} className="text-teal" />
+            </div>
+            <p className="text-[#7A9BAD] text-sm">Loading the league…</p>
+          </div>
+        </div>
+      </DarkContext.Provider>
+    );
+  }
+
+  return (
+    <DarkContext.Provider value={dark}>
+      <div className={`max-w-lg mx-auto min-h-screen ${bgClass} relative`}>
+        {/* Dark mode toggle on home screen (top-right corner over hero) */}
+        {tab === 'home' && (
+          <button onClick={toggleDark}
+            className="absolute top-3 right-3 z-50 w-9 h-9 rounded-xl bg-black/30 backdrop-blur-sm flex items-center justify-center">
+            {dark ? <Sun size={16} className="text-amber-400" /> : <Moon size={16} className="text-white" />}
+          </button>
+        )}
+
+        <TopHeader tab={tab} dark={dark} toggleDark={toggleDark} />
+
+        {tab === 'home'        && <HomeTab players={players} matches={matches} pending={pending} season={season} setTab={setTab} />}
+        {tab === 'leaderboard' && <LeaderboardTab standings={standings} formByPlayer={formByPlayer} />}
+        {tab === 'submit'      && <SubmitTab players={players} />}
+        {tab === 'approval'    && <ApprovalTab pending={pending} playerById={playerById} />}
+        {tab === 'stats'       && <StatsTab stats={stats} season={season} />}
+        {tab === 'h2h'         && <H2hTab players={players} />}
+        {tab === 'history'     && <HistoryTab matches={matches} playerById={playerById} />}
+        {tab === 'halloffame'  && <HallOfFameTab players={players} trophies={trophies} />}
+
+        <BottomNav tab={tab} setTab={setTab} />
+      </div>
+    </DarkContext.Provider>
   );
 }

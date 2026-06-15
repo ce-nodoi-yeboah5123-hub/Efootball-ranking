@@ -4,13 +4,54 @@
 @tailwind components;
 @tailwind utilities;
 
-::placeholder {
-  color: #8FAE9C;
+/* ── Light mode (default) ─────────────────────────── */
+:root {
+  --bg:        #F0F4F8;
+  --card:      #FFFFFF;
+  --border:    #DDE3EA;
+  --ink:       #0F1E26;
+  --ink-muted: #4A6273;
+  --nav-bg:    #FFFFFF;
+  --nav-border:#DDE3EA;
+  --input-bg:  #FFFFFF;
+  --stat-card: #FFFFFF;
 }
+
+/* ── Dark mode ────────────────────────────────────── */
+.dark {
+  --bg:        #0D1B24;
+  --card:      #162330;
+  --border:    #1E3040;
+  --ink:       #E8F0F5;
+  --ink-muted: #7A9BAD;
+  --nav-bg:    #111E28;
+  --nav-border:#1E3040;
+  --input-bg:  #162330;
+  --stat-card: #162330;
+}
+
+/* ── CSS var utilities ────────────────────────────── */
+.bg-app       { background: var(--bg); }
+.bg-card-d    { background: var(--card); }
+.border-d     { border-color: var(--border); }
+.text-ink-d   { color: var(--ink); }
+.text-muted-d { color: var(--ink-muted); }
+.bg-nav       { background: var(--nav-bg); }
+.border-nav   { border-color: var(--nav-border); }
+.bg-input     { background: var(--input-bg); }
+
+/* ── Smooth transition on mode switch ─────────────── */
+*, *::before, *::after {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease;
+}
+
+html { scroll-behavior: smooth; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
 button:focus-visible,
 input:focus-visible,
 select:focus-visible {
-  outline: 2px solid #9FE870;
+  outline: 2px solid #1B4D5C;
   outline-offset: 2px;
 }
