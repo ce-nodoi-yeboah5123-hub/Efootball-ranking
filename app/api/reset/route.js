@@ -8,18 +8,26 @@ export async function POST() {
   }
 
   try {
-    await serverSupabase.from('pending_matches').delete().not('id', 'is', null);
-    await serverSupabase.from('trophies').delete().not('id', 'is', null);
-    await serverSupabase.from('season_archives').delete().not('id', 'is', null);
-    await serverSupabase.from('matches').delete().not('id', 'is', null);
-    await serverSupabase.from('players').delete().not('id', 'is', null);
-    await serverSupabase.from('seasons').delete().not('id', 'is', null);
+    const { error: e1 } = await serverSupabase.from('pending_matches').delete().not('id', 'is', null);
+    if (e1) throw new Error('Failed clearing pending matches: ' + e1.message);
 
-    const { error: seedError } = await serverSupabase
-      .from('seasons')
-      .insert({ name: 'Season 1' });
+    const { error: e2 } = await serverSupabase.from('trophies').delete().not('id', 'is', null);
+    if (e2) throw new Error('Failed clearing trophies: ' + e2.message);
 
-    if (seedError) throw seedError;
+    const { error: e3 } = await serverSupabase.from('season_archives').delete().not('id', 'is', null);
+    if (e3) throw new Error('Failed clearing season archives: ' + e3.message);
+
+    const { error: e4 } = await serverSupabase.from('matches').delete().not('id', 'is', null);
+    if (e4) throw new Error('Failed clearing matches: ' + e4.message);
+
+    const { error: e5 } = await serverSupabase.from('players').delete().not('id', 'is', null);
+    if (e5) throw new Error('Failed clearing players: ' + e5.message);
+
+    const { error: e6 } = await serverSupabase.from('seasons').delete().not('id', 'is', null);
+    if (e6) throw new Error('Failed clearing seasons: ' + e6.message);
+
+    const { error: e7 } = await serverSupabase.from('seasons').insert({ name: 'Season 1' });
+    if (e7) throw new Error('Failed creating new season: ' + e7.message);
 
     return Response.json({ success: true });
   } catch (err) {
