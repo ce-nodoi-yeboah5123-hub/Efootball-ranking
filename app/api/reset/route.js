@@ -1,21 +1,28 @@
-import { createServerSupabaseClient } from '../../../lib/supabase-server';
+import { createClient as createServerSupabase, getUser } from '../../../lib/supabase-server';
 
 export async function POST() {
-  const supabase = createServerSupabaseClient();
-
-  // Delete in order to respect foreign keys
-  const steps = [
-    supabase.from('trophies').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
-    supabase.from('pending_matches').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
-    supabase.from('matches').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
-    supabase.from('players').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
-    supabase.from('seasons').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
-  ];
-
-  for (const step of steps) {
-    const { error } = await step;
-    if (error) return Response.json({ error: error.message }, { status: 500 });
+  const serverSupabase = createServerSupabase();
+  const user = await getUser(serverSupabase);
+  if (!user) {
+    return Response.json({ error: 'Admin login required.' }, { status: 401 });
   }
 
-  return Response.json({ success: true });
+  try {
+    await serverSupabase.from('pending_matches').delete().not('id', 'is', null);
+    await serverSupabase.from('trophies').delete().not('id', 'is', null);
+    await serverSupabase.from('season_archives').delete().not('id', 'is', null);
+    await serverSupabase.from('matches').delete().not('id', 'is', null);
+    await serverSupabase.from('players').delete().not('id', 'is', null);
+    await serverSupabase.from('seasons').delete().not('id', 'is', null);
+
+    const { error: seedError } = await serverSupabase
+      .from('seasons')
+      .insert({ name: 'Season 1' });
+
+    if (seedError) throw seedError;
+
+    return Response.json({ success: true });
+  } catch (err) {
+    return Response.json({ error: err.message || 'Reset failed.' }, { status: 500 });
+  }
 }
