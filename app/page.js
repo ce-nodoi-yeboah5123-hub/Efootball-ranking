@@ -9,15 +9,9 @@ import {
 } from 'lucide-react';
 import { uploadScreenshot } from '../lib/supabaseClient';
 
-/* ═══════════════════════════════════════════════════════════
-   DARK MODE CONTEXT
-═══════════════════════════════════════════════════════════ */
 const DarkContext = createContext(false);
 function useDark() { return useContext(DarkContext); }
 
-/* ═══════════════════════════════════════════════════════════
-   TROPHY CONFIG
-═══════════════════════════════════════════════════════════ */
 const TROPHY_TYPES = {
   winner:        { label: 'Winner',       emoji: '🏆', color: '#D97706', bg: '#FEF3C7', border: '#FCD34D' },
   runner_up:     { label: 'Runner Up',    emoji: '🥈', color: '#64748B', bg: '#F1F5F9', border: '#CBD5E1' },
@@ -27,26 +21,22 @@ const TROPHY_TYPES = {
   season_mvp:    { label: 'Season MVP',   emoji: '🏅', color: '#7C3AED', bg: '#F5F3FF', border: '#C4B5FD' },
 };
 
-/* ═══════════════════════════════════════════════════════════
-   THEME HELPERS — returns className strings based on dark mode
-═══════════════════════════════════════════════════════════ */
 function useTheme() {
   const dark = useDark();
   return {
-    bg:       dark ? 'bg-[#0D1B24]'  : 'bg-[#F0F4F8]',
-    card:     dark ? 'bg-[#162330]'  : 'bg-white',
-    border:   dark ? 'border-[#1E3040]' : 'border-[#DDE3EA]',
-    ink:      dark ? 'text-[#E8F0F5]'  : 'text-[#0F1E26]',
-    muted:    dark ? 'text-[#7A9BAD]'  : 'text-[#4A6273]',
-    navBg:    dark ? 'bg-[#111E28]'  : 'bg-white',
-    navBorder:dark ? 'border-[#1E3040]' : 'border-[#DDE3EA]',
-    inputBg:  dark ? 'bg-[#162330] border-[#1E3040] text-[#E8F0F5]' : 'bg-white border-[#DDE3EA] text-[#0F1E26]',
-    hover:    dark ? 'hover:bg-[#1E3040]' : 'hover:bg-[#F0F4F8]',
+    bg:        dark ? 'bg-[#0D1B24]'     : 'bg-[#F0F4F8]',
+    card:      dark ? 'bg-[#162330]'     : 'bg-white',
+    border:    dark ? 'border-[#1E3040]' : 'border-[#DDE3EA]',
+    ink:       dark ? 'text-[#E8F0F5]'  : 'text-[#0F1E26]',
+    muted:     dark ? 'text-[#7A9BAD]'  : 'text-[#4A6273]',
+    navBg:     dark ? 'bg-[#111E28]'    : 'bg-white',
+    navBorder: dark ? 'border-[#1E3040]': 'border-[#DDE3EA]',
+    inputBg:   dark ? 'bg-[#162330] border-[#1E3040] text-[#E8F0F5]' : 'bg-white border-[#DDE3EA] text-[#0F1E26]',
+    hover:     dark ? 'hover:bg-[#1E3040]' : 'hover:bg-[#F0F4F8]',
     dark,
   };
 }
 
-/* ─── Form dots ────────────────────────────────────────── */
 function FormDots({ form }) {
   const last5 = (form || []).slice(-5).reverse();
   const slots = [...last5, ...Array(5 - last5.length).fill(null)];
@@ -68,35 +58,26 @@ function SectionTitle({ children }) {
   return <h2 className={`font-display font-bold text-2xl uppercase tracking-wide ${ink} mb-3`}>{children}</h2>;
 }
 
-/* ═══════════════════════════════════════════════════════════
-   HOME TAB
-═══════════════════════════════════════════════════════════ */
+/* ── HOME TAB ── */
 function HomeTab({ players, matches, pending, season, setTab }) {
   const { card, border, ink, muted, dark } = useTheme();
-
   const navCards = [
-    { id: 'leaderboard', label: 'Table',    Icon: Trophy,        desc: 'ELO standings' },
-    { id: 'submit',      label: 'Report',   Icon: Swords,        desc: 'Submit a result' },
-    { id: 'approval',    label: 'Approval', Icon: ClipboardCheck,desc: 'Pending results' },
-    { id: 'h2h',         label: 'H2H',      Icon: Repeat,        desc: 'Head-to-head' },
-    { id: 'history',     label: 'History',  Icon: History,       desc: 'Match log' },
+    { id: 'leaderboard', label: 'Table',    Icon: Trophy,         desc: 'ELO standings' },
+    { id: 'submit',      label: 'Report',   Icon: Swords,         desc: 'Submit a result' },
+    { id: 'approval',    label: 'Approval', Icon: ClipboardCheck, desc: 'Pending results' },
+    { id: 'h2h',         label: 'H2H',      Icon: Repeat,         desc: 'Head-to-head' },
+    { id: 'history',     label: 'History',  Icon: History,        desc: 'Match log' },
   ];
-
   return (
     <div className="flex flex-col">
-      {/* ── Video Hero ── */}
       <div className="relative w-full h-56 sm:h-72 overflow-hidden">
-        <video
-          autoPlay muted loop playsInline
+        <video autoPlay muted loop playsInline
           className="absolute inset-0 w-full h-full object-cover"
-          poster="https://images.unsplash.com/photo-1489944440615-453fc2b6a9a9?w=900&auto=format&fit=crop&q=80"
-        >
+          poster="https://images.unsplash.com/photo-1489944440615-453fc2b6a9a9?w=900&auto=format&fit=crop&q=80">
           <source src="https://cdn.pixabay.com/video/2020/07/30/46234-446449469_large.mp4" type="video/mp4" />
           <source src="https://cdn.pixabay.com/video/2019/09/16/27089-361562102_large.mp4" type="video/mp4" />
-          <img
-            src="https://images.unsplash.com/photo-1489944440615-453fc2b6a9a9?w=900&auto=format&fit=crop&q=80"
-            alt="Stadium" className="w-full h-full object-cover"
-          />
+          <img src="https://images.unsplash.com/photo-1489944440615-453fc2b6a9a9?w=900&auto=format&fit=crop&q=80"
+            alt="Stadium" className="w-full h-full object-cover" />
         </video>
         <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/40 to-black/80" />
         <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
@@ -108,9 +89,7 @@ function HomeTab({ players, matches, pending, season, setTab }) {
         </div>
       </div>
 
-      {/* Body */}
       <div className="px-4 pt-5 pb-28">
-        {/* Stats row */}
         <div className="flex gap-3 mb-5">
           <div className={`flex-1 ${card} rounded-2xl border ${border} shadow-sm px-4 py-3 text-center`}>
             <div className="font-display font-bold text-3xl text-teal">{players.length}</div>
@@ -128,7 +107,6 @@ function HomeTab({ players, matches, pending, season, setTab }) {
           )}
         </div>
 
-        {/* Nav cards 3+2 */}
         <div className="grid grid-cols-3 gap-3 mb-3">
           {navCards.slice(0, 3).map(({ id, label, Icon, desc }) => (
             <button key={id} onClick={() => setTab(id)}
@@ -162,18 +140,15 @@ function HomeTab({ players, matches, pending, season, setTab }) {
             </p>
           </div>
         )}
-
         <p className={`text-center ${muted} text-xs mt-6`}>Powered by Super League Digital</p>
       </div>
     </div>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   LEADERBOARD TAB
-═══════════════════════════════════════════════════════════ */
+/* ── LEADERBOARD TAB ── */
 function LeaderboardTab({ standings, formByPlayer }) {
-  const { card, border, ink, muted, hover, bg } = useTheme();
+  const { card, border, ink, muted, hover } = useTheme();
   return (
     <div className="px-4 py-5 pb-28">
       <SectionTitle>Standings</SectionTitle>
@@ -215,11 +190,9 @@ function LeaderboardTab({ standings, formByPlayer }) {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   SUBMIT TAB
-═══════════════════════════════════════════════════════════ */
+/* ── SUBMIT TAB ── */
 function SubmitTab({ players }) {
-  const { card, border, ink, muted, inputBg, dark } = useTheme();
+  const { card, border, muted, inputBg } = useTheme();
   const [matchA, setMatchA] = useState('');
   const [matchB, setMatchB] = useState('');
   const [scoreA, setScoreA] = useState('');
@@ -254,7 +227,11 @@ function SubmitTab({ players }) {
       });
       const data = await res.json();
       if (!res.ok) { setMatchError(data.error || 'Could not submit.'); }
-      else { setMatchA(''); setMatchB(''); setScoreA(''); setScoreB(''); setSubmittedBy(''); setScreenshotFile(null); setSubmitOk(true); setTimeout(() => setSubmitOk(false), 3000); }
+      else {
+        setMatchA(''); setMatchB(''); setScoreA(''); setScoreB('');
+        setSubmittedBy(''); setScreenshotFile(null);
+        setSubmitOk(true); setTimeout(() => setSubmitOk(false), 3000);
+      }
     } catch { setMatchError('Network error.'); }
     setBusy(false);
   }
@@ -324,9 +301,7 @@ function SubmitTab({ players }) {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   APPROVAL TAB
-═══════════════════════════════════════════════════════════ */
+/* ── APPROVAL TAB ── */
 function ApprovalTab({ pending, playerById }) {
   const { card, border, ink, muted } = useTheme();
   function playerName(id) { return playerById[id]?.name || 'Unknown'; }
@@ -350,7 +325,8 @@ function ApprovalTab({ pending, playerById }) {
                 <span className="bg-amber-400/20 text-amber-500 text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0">Pending</span>
               </div>
               {m.screenshot_url && (
-                <a href={m.screenshot_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-teal text-xs mt-2 hover:underline">
+                <a href={m.screenshot_url} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-teal text-xs mt-2 hover:underline">
                   <ImageIcon size={12} /> View screenshot
                 </a>
               )}
@@ -363,9 +339,7 @@ function ApprovalTab({ pending, playerById }) {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   STATS TAB
-═══════════════════════════════════════════════════════════ */
+/* ── STATS TAB ── */
 function StatsTab({ stats, season }) {
   const { muted } = useTheme();
   if (!stats) return <div className="px-4 py-5 pb-28"><p className={`${muted} text-sm`}>Loading stats…</p></div>;
@@ -376,7 +350,7 @@ function StatsTab({ stats, season }) {
       <div>
         <SectionTitle>Top Scorers {season?.current ? `— ${season.current.name}` : ''}</SectionTitle>
         {stats.topScorers.length === 0 ? (
-          <div className="text-sm text-[#4A6273]">No goals recorded yet.</div>
+          <div className={`${muted} text-sm`}>No goals recorded yet.</div>
         ) : (
           <TopScorersList scorers={stats.topScorers} />
         )}
@@ -386,7 +360,7 @@ function StatsTab({ stats, season }) {
 }
 
 function TopScorersList({ scorers }) {
-  const { card, border, ink, muted } = useTheme();
+  const { card, border, ink } = useTheme();
   return (
     <div className={`${card} border ${border} rounded-2xl shadow-sm overflow-hidden`}>
       {scorers.map((s, i) => (
@@ -440,9 +414,7 @@ function StatBlock({ title, eloLeaders, winRateLeaders, minGames }) {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   H2H TAB
-═══════════════════════════════════════════════════════════ */
+/* ── H2H TAB ── */
 function H2hTab({ players }) {
   const { card, border, ink, muted, inputBg } = useTheme();
   const [h2hA, setH2hA] = useState('');
@@ -468,7 +440,8 @@ function H2hTab({ players }) {
     let aWins = 0, bWins = 0, draws = 0, aGoals = 0, bGoals = 0;
     h2hMatches.forEach((m) => {
       const aIsA = m.player_a === h2hA;
-      const ga = aIsA ? m.score_a : m.score_b; const gb = aIsA ? m.score_b : m.score_a;
+      const ga = aIsA ? m.score_a : m.score_b;
+      const gb = aIsA ? m.score_b : m.score_a;
       aGoals += ga; bGoals += gb;
       if (ga > gb) aWins++; else if (ga < gb) bWins++; else draws++;
     });
@@ -501,9 +474,13 @@ function H2hTab({ players }) {
           <p className={`${muted} text-sm`}>Pick two players to see their record.</p>
         </div>
       ) : loading ? (
-        <div className={`${card} border ${border} rounded-2xl p-6 text-center shadow-sm`}><Loader2 size={20} className="animate-spin text-teal mx-auto" /></div>
+        <div className={`${card} border ${border} rounded-2xl p-6 text-center shadow-sm`}>
+          <Loader2 size={20} className="animate-spin text-teal mx-auto" />
+        </div>
       ) : summary && summary.total === 0 ? (
-        <div className={`${card} border ${border} rounded-2xl p-6 text-center shadow-sm`}><p className={`${muted} text-sm`}>No matches between these players yet.</p></div>
+        <div className={`${card} border ${border} rounded-2xl p-6 text-center shadow-sm`}>
+          <p className={`${muted} text-sm`}>No matches between these players yet.</p>
+        </div>
       ) : summary ? (
         <>
           <div className={`${card} border ${border} rounded-2xl shadow-sm p-5`}>
@@ -524,7 +501,9 @@ function H2hTab({ players }) {
                 <div className={`${muted} text-xs`}>wins</div>
               </div>
             </div>
-            <div className={`mt-4 pt-4 border-t ${border} text-center font-mono text-sm ${muted}`}>Goals: {summary.aGoals} – {summary.bGoals}</div>
+            <div className={`mt-4 pt-4 border-t ${border} text-center font-mono text-sm ${muted}`}>
+              Goals: {summary.aGoals} – {summary.bGoals}
+            </div>
           </div>
           <div className={`${card} border ${border} rounded-2xl shadow-sm overflow-hidden`}>
             {h2hMatches.map((m, i) => (
@@ -540,9 +519,7 @@ function H2hTab({ players }) {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   HISTORY TAB
-═══════════════════════════════════════════════════════════ */
+/* ── HISTORY TAB ── */
 function HistoryTab({ matches, playerById }) {
   const { card, border, ink, muted } = useTheme();
   function playerName(id) { return playerById[id]?.name || 'Unknown'; }
@@ -559,15 +536,25 @@ function HistoryTab({ matches, playerById }) {
           {matches.map((m, i) => (
             <div key={m.id} className={`px-4 py-3.5 ${i === matches.length - 1 ? '' : `border-b ${border}`}`}>
               <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div className={`font-mono text-sm ${ink}`}>{playerName(m.player_a)} <span className={muted}>{m.score_a} – {m.score_b}</span> {playerName(m.player_b)}</div>
+                <div className={`font-mono text-sm ${ink}`}>
+                  {playerName(m.player_a)} <span className={muted}>{m.score_a} – {m.score_b}</span> {playerName(m.player_b)}
+                </div>
                 <div className="flex items-center gap-2">
-                  {m.screenshot_url && <a href={m.screenshot_url} target="_blank" rel="noopener noreferrer" className="text-teal"><ImageIcon size={14} /></a>}
+                  {m.screenshot_url && (
+                    <a href={m.screenshot_url} target="_blank" rel="noopener noreferrer" className="text-teal">
+                      <ImageIcon size={14} />
+                    </a>
+                  )}
                   <span className={`${muted} text-xs`}>{new Date(m.approved_at).toLocaleDateString()}</span>
                 </div>
               </div>
-              <div className="flex gap-4 mt-1 text-xs font-mono">
-                <span className={m.delta_a >= 0 ? 'text-green-500' : 'text-red-400'}>{playerName(m.player_a)} {m.delta_a >= 0 ? '+' : ''}{m.delta_a} → {m.elo_a_after}</span>
-                <span className={m.delta_b >= 0 ? 'text-green-500' : 'text-red-400'}>{playerName(m.player_b)} {m.delta_b >= 0 ? '+' : ''}{m.delta_b} → {m.elo_b_after}</span>
+              <div className="flex gap-4 mt-1 text-xs font-mono flex-wrap">
+                <span className={m.delta_a >= 0 ? 'text-green-500' : 'text-red-400'}>
+                  {playerName(m.player_a)} {m.delta_a >= 0 ? '+' : ''}{m.delta_a} → {m.elo_a_after}
+                </span>
+                <span className={m.delta_b >= 0 ? 'text-green-500' : 'text-red-400'}>
+                  {playerName(m.player_b)} {m.delta_b >= 0 ? '+' : ''}{m.delta_b} → {m.elo_b_after}
+                </span>
               </div>
             </div>
           ))}
@@ -577,9 +564,7 @@ function HistoryTab({ matches, playerById }) {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   HALL OF FAME TAB
-═══════════════════════════════════════════════════════════ */
+/* ── HALL OF FAME TAB ── */
 function HallOfFameTab({ players, trophies }) {
   const { card, border, ink, muted, dark } = useTheme();
   const playerById = useMemo(() => { const m = {}; players.forEach((p) => (m[p.id] = p)); return m; }, [players]);
@@ -592,7 +577,8 @@ function HallOfFameTab({ players, trophies }) {
 
   return (
     <div className="px-4 py-5 pb-28">
-      <div className="relative rounded-2xl overflow-hidden mb-5 h-28" style={{ background: 'linear-gradient(135deg, #1B4D5C 0%, #0F2A34 100%)' }}>
+      <div className="relative rounded-2xl overflow-hidden mb-5 h-28"
+        style={{ background: 'linear-gradient(135deg, #1B4D5C 0%, #0F2A34 100%)' }}>
         <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
           <div className="text-3xl mb-1">🏆</div>
           <h2 className="font-display font-bold text-2xl uppercase tracking-widest">Hall of Fame</h2>
@@ -619,9 +605,11 @@ function HallOfFameTab({ players, trophies }) {
                 <div className="p-4">
                   <div className="flex items-center gap-3 mb-4">
                     {player.team_picture_url ? (
-                      <img src={player.team_picture_url} alt="" className="w-14 h-14 rounded-xl object-cover border-2 border-amber-300 flex-shrink-0" />
+                      <img src={player.team_picture_url} alt=""
+                        className="w-14 h-14 rounded-xl object-cover border-2 border-amber-300 flex-shrink-0" />
                     ) : (
-                      <div className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center border-2 border-amber-300" style={{ background: 'linear-gradient(135deg,#1B4D5C,#2A6478)' }}>
+                      <div className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center border-2 border-amber-300"
+                        style={{ background: 'linear-gradient(135deg,#1B4D5C,#2A6478)' }}>
                         <span className="text-white font-display font-bold text-xl">{player.name.charAt(0).toUpperCase()}</span>
                       </div>
                     )}
@@ -643,7 +631,8 @@ function HallOfFameTab({ players, trophies }) {
                             <span className={`${muted} text-xs ml-2`}>{info.label}</span>
                           </div>
                           {t.count > 1 && (
-                            <span className="flex-shrink-0 font-bold text-sm px-2 py-0.5 rounded-full" style={{ background: info.border, color: info.color }}>{t.count}x</span>
+                            <span className="flex-shrink-0 font-bold text-sm px-2 py-0.5 rounded-full"
+                              style={{ background: info.border, color: info.color }}>{t.count}x</span>
                           )}
                         </div>
                       );
@@ -659,17 +648,15 @@ function HallOfFameTab({ players, trophies }) {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   BOTTOM NAV
-═══════════════════════════════════════════════════════════ */
+/* ── BOTTOM NAV ── */
 function BottomNav({ tab, setTab }) {
   const { navBg, navBorder } = useTheme();
   const items = [
-    { id: 'home',        label: 'Home',      Icon: HomeIcon },
-    { id: 'leaderboard', label: 'Standings', Icon: ListOrdered },
-    { id: 'submit',      label: 'Report',    Icon: Swords },
-    { id: 'stats',       label: 'Stats',     Icon: BarChart3 },
-    { id: 'halloffame',  label: 'Hall of Fame', Icon: Trophy },
+    { id: 'home',        label: 'Home',         Icon: HomeIcon },
+    { id: 'leaderboard', label: 'Standings',     Icon: ListOrdered },
+    { id: 'submit',      label: 'Report',        Icon: Swords },
+    { id: 'stats',       label: 'Stats',         Icon: BarChart3 },
+    { id: 'halloffame',  label: 'Hall of Fame',  Icon: Trophy },
   ];
   return (
     <nav className={`fixed bottom-0 left-0 right-0 z-50 ${navBg} border-t ${navBorder}`}>
@@ -690,14 +677,11 @@ function BottomNav({ tab, setTab }) {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   TOP HEADER
-═══════════════════════════════════════════════════════════ */
+/* ── TOP HEADER ── */
 function TopHeader({ tab, dark, toggleDark }) {
   const { navBg, navBorder, ink, muted } = useTheme();
   const titles = {
-    home: null,
-    leaderboard: 'Standings', submit: 'Report Result',
+    home: null, leaderboard: 'Standings', submit: 'Report Result',
     approval: 'Pending Approval', stats: 'Statistics',
     h2h: 'Head-to-Head', history: 'Match History', halloffame: 'Hall of Fame',
   };
@@ -706,7 +690,8 @@ function TopHeader({ tab, dark, toggleDark }) {
     <header className={`sticky top-0 z-40 ${navBg} border-b ${navBorder} px-4 py-3 flex items-center justify-between`}>
       <h1 className={`font-display font-bold text-2xl uppercase tracking-wide ${ink}`}>{titles[tab]}</h1>
       <div className="flex items-center gap-3">
-        <button onClick={toggleDark} className={`w-9 h-9 rounded-xl flex items-center justify-center ${dark ? 'bg-[#1E3040]' : 'bg-[#F0F4F8]'} transition-all`}>
+        <button onClick={toggleDark}
+          className={`w-9 h-9 rounded-xl flex items-center justify-center ${dark ? 'bg-[#1E3040]' : 'bg-[#F0F4F8]'} transition-all`}>
           {dark ? <Sun size={16} className="text-amber-400" /> : <Moon size={16} className="text-[#4A6273]" />}
         </button>
         <Link href="/admin" className={`flex items-center gap-1 text-xs ${muted} hover:text-teal transition-colors`}>
@@ -717,15 +702,13 @@ function TopHeader({ tab, dark, toggleDark }) {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   ROOT
-═══════════════════════════════════════════════════════════ */
+/* ── ROOT ── */
 export default function Home() {
   const [players, setPlayers]   = useState([]);
   const [matches, setMatches]   = useState([]);
   const [pending, setPending]   = useState([]);
-  const [season, setSeason]     = useState(null);
-  const [stats, setStats]       = useState(null);
+  const [season,  setSeason]    = useState(null);
+  const [stats,   setStats]     = useState(null);
   const [trophies, setTrophies] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [tab, setTab]           = useState('home');
@@ -738,14 +721,12 @@ export default function Home() {
   });
 
   function toggleDark() {
-    setDark((d) => {
-      localStorage.setItem('sl-dark', String(!d));
-      return !d;
-    });
+    setDark((d) => { localStorage.setItem('sl-dark', String(!d)); return !d; });
   }
 
   useEffect(() => { loadAll(); }, []);
 
+  // *** THE FIXED loadAll — all inside Home, all json() calls in parallel ***
   async function loadAll() {
     setLoading(true);
     try {
@@ -753,17 +734,25 @@ export default function Home() {
         fetch('/api/players'), fetch('/api/matches'), fetch('/api/pending'),
         fetch('/api/season'), fetch('/api/stats'), fetch('/api/trophies'),
       ]);
-      const pData = await pR.json(); setPlayers(Array.isArray(pData) ? pData : []);
-      const mData = await mR.json(); setMatches(Array.isArray(mData) ? mData : []);
-      const pdData = await pdR.json(); setPending(Array.isArray(pdData) ? pdData : []);
-      setSeason(await sR.json());
-      setStats(await stR.json());
-      const tData = await tR.json(); setTrophies(Array.isArray(tData) ? tData : []);
-    } catch (e) { console.error(e); }
+
+      const [pData, mData, pdData, sData, stData, tData] = await Promise.all([
+        pR.json(), mR.json(), pdR.json(), sR.json(), stR.json(), tR.json(),
+      ]);
+
+      setPlayers(Array.isArray(pData)  ? pData  : []);
+      setMatches(Array.isArray(mData)  ? mData  : []);
+      setPending(Array.isArray(pdData) ? pdData : []);
+      setSeason(sData?.current !== undefined ? sData : null);
+      setStats(stData?.weekly ? stData : null);
+      setTrophies(Array.isArray(tData) ? tData : []);
+    } catch (e) { console.error('loadAll error:', e); }
     setLoading(false);
   }
 
-  const playerById = useMemo(() => { const m = {}; players.forEach((p) => (m[p.id] = p)); return m; }, [players]);
+  const playerById = useMemo(() => {
+    const m = {}; players.forEach((p) => (m[p.id] = p)); return m;
+  }, [players]);
+
   const formByPlayer = useMemo(() => {
     const map = {}; players.forEach((p) => (map[p.id] = []));
     [...matches].reverse().forEach((m) => {
@@ -796,7 +785,6 @@ export default function Home() {
   return (
     <DarkContext.Provider value={dark}>
       <div className={`max-w-lg mx-auto min-h-screen ${bgClass} relative`}>
-        {/* Dark mode toggle on home screen (top-right corner over hero) */}
         {tab === 'home' && (
           <button onClick={toggleDark}
             className="absolute top-3 right-3 z-50 w-9 h-9 rounded-xl bg-black/30 backdrop-blur-sm flex items-center justify-center">
