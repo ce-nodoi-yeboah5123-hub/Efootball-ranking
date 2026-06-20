@@ -1,11 +1,12 @@
 import { supabase } from '../../../lib/supabase';
 
 const MIN_GAMES_FOR_WIN_RATE = 2;
+const EMPTY_PERIOD = { eloLeaders: [], winRateLeaders: [], minGames: MIN_GAMES_FOR_WIN_RATE };
 
 function startOfWeek() {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - 6); // rolling 7-day window including today
+  d.setDate(d.getDate() - 6);
   return d.toISOString();
 }
 
@@ -21,9 +22,10 @@ function summarizePeriod(matches, playersById) {
   const games = {};
   const wins = {};
 
-  matches.forEach((m) => {
-    eloGain[m.player_a] = (eloGain[m.player_a] || 0) + m.delta_a;
-    eloGain[m.player_b] = (eloGain[m.player_b] || 0) + m.delta_b;
+  (matches || []).forEach((m) => {
+    if (!m.player_a || !m.player_b) return;
+    eloGain[m.player_a] = (eloGain[m.player_a] || 0) + (m.delta_a || 0);
+    eloGain[m.player_b] = (eloGain[m.player_b] || 0) + (m.delta_b || 0);
 
     games[m.player_a] = (games[m.player_a] || 0) + 1;
     games[m.player_b] = (games[m.player_b] || 0) + 1;
@@ -58,58 +60,58 @@ function summarizePeriod(matches, playersById) {
 }
 
 export async function GET() {
-  const { data: players, error: playersError } = await supabase.from('players').select('id, name');
-  if (playersError) return Response.json({ error: playersError.message }, { status: 500 });
+  try {
+    const { data: players } = await supabase.from('players').select('id, name');
+    const playersById = {};
+    (players || []).forEach((p) => (playersById[p.id] = p));
 
-  const playersById = {};
-  players.forEach((p) => (playersById[p.id] = p));
+    const { data: weeklyMatches } = await supabase
+      .from('matches')
+      .select('*')
+      .gte('approved_at', startOfWeek());
 
-  const { data: weeklyMatches, error: weeklyError } = await supabase
-    .from('matches')
-    .select('*')
-    .gte('approved_at', startOfWeek());
-  if (weeklyError) return Response.json({ error: weeklyError.message }, { status: 500 });
+    const { data: monthlyMatches } = await supabase
+      .from('matches')
+      .select('*')
+      .gte('approved_at', startOfMonth());
 
-  const { data: monthlyMatches, error: monthlyError } = await supabase
-    .from('matches')
-    .select('*')
-    .gte('approved_at', startOfMonth());
-  if (monthlyError) return Response.json({ error: monthlyError.message }, { status: 500 });
+    const { data: season } = await supabase
+      .from('seasons')
+      .select('id')
+      .is('ended_at', null)
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-  // Top scorers for the current season
-  const { data: season } = await supabase
-    .from('seasons')
-    .select('id')
-    .is('ended_at', null)
-    .order('started_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    let seasonMatches = [];
+    if (season) {
+      const { data } = await supabase.from('matches').select('*').eq('season_id', season.id);
+      seasonMatches = data || [];
+    }
 
-  let seasonMatches = [];
-  if (season) {
-    const { data, error } = await supabase.from('matches').select('*').eq('season_id', season.id);
-    if (error) return Response.json({ error: error.message }, { status: 500 });
-    seasonMatches = data;
+    const goals = {};
+    seasonMatches.forEach((m) => {
+      if (!m.player_a || !m.player_b) return;
+      goals[m.player_a] = (goals[m.player_a] || 0) + (m.score_a || 0);
+      goals[m.player_b] = (goals[m.player_b] || 0) + (m.score_b || 0);
+    });
+
+    const topScorers = Object.entries(goals)
+      .map(([playerId, total]) => ({
+        playerId,
+        name: playersById[playerId]?.name || 'Unknown',
+        goals: total,
+      }))
+      .sort((a, b) => b.goals - a.goals)
+      .slice(0, 5);
+
+    return Response.json({
+      weekly: summarizePeriod(weeklyMatches, playersById),
+      monthly: summarizePeriod(monthlyMatches, playersById),
+      topScorers,
+    });
+  } catch (err) {
+    console.error('stats route error:', err);
+    return Response.json({ weekly: EMPTY_PERIOD, monthly: EMPTY_PERIOD, topScorers: [] });
   }
-
-  const goals = {};
-  seasonMatches.forEach((m) => {
-    goals[m.player_a] = (goals[m.player_a] || 0) + m.score_a;
-    goals[m.player_b] = (goals[m.player_b] || 0) + m.score_b;
-  });
-
-  const topScorers = Object.entries(goals)
-    .map(([playerId, total]) => ({
-      playerId,
-      name: playersById[playerId]?.name || 'Unknown',
-      goals: total,
-    }))
-    .sort((a, b) => b.goals - a.goals)
-    .slice(0, 5);
-
-  return Response.json({
-    weekly: summarizePeriod(weeklyMatches, playersById),
-    monthly: summarizePeriod(monthlyMatches, playersById),
-    topScorers,
-  });
 }
