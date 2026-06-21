@@ -1,6 +1,9 @@
 import { supabase } from '../../../lib/supabase';
 
-const MIN_GAMES_FOR_WIN_RATE = 2;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+const MIN_GAMES_FOR_WIN_RATE = 1;
 const EMPTY_PERIOD = { eloLeaders: [], winRateLeaders: [], minGames: MIN_GAMES_FOR_WIN_RATE };
 
 function startOfWeek() {
