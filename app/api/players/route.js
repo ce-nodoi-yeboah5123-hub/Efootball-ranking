@@ -2,6 +2,9 @@ import { supabase } from '../../../lib/supabase';
 import { createClient as createServerSupabase, getUser } from '../../../lib/supabase-server';
 import { START_ELO } from '../../../lib/config';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET() {
   const { data, error } = await supabase
     .from('players')
